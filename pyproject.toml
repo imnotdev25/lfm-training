@@ -1,0 +1,34 @@
+[project]
+name = "lfm-trainer"
+version = "0.3.0"
+description = "Fine-tune LFM 2.5 1.2B for coding tasks on Kaggle multi-GPU with auto-publish to Hugging Face"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [
+    { name = "Bhavik" },
+]
+
+dependencies = [
+    "torch>=2.1.0",
+    "transformers>=4.40.0",
+    "accelerate>=0.30.0",
+    "peft>=0.11.0",
+    "trl>=0.9.0",
+    "datasets>=2.19.0",
+    "huggingface-hub>=0.23.0",
+    "pandas>=2.0.0",
+    "bitsandbytes>=0.43.0",
+]
+
+[project.optional-dependencies]
+kaggle = [
+    "kaggle",
+]
+
+[project.scripts]
+lfm-train = "lfm_trainer.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
