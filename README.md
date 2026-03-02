@@ -221,29 +221,61 @@ When `--export-gguf` or `--export-mlx` is enabled:
 
 See the [`examples/`](examples/) directory for ready-to-run scripts:
 
+### 📁 `getting_started/` — First steps
+
 | Example | Description |
 |---------|-------------|
-| [`basic_training.py`](examples/basic_training.py) | Simple Alpaca coding fine-tune |
-| [`tool_calling_training.py`](examples/tool_calling_training.py) | Tool-calling-only with playwright MCP |
-| [`multi_dataset_training.py`](examples/multi_dataset_training.py) | Combining Hub + local + DataFrame sources |
-| [`continual_training.py`](examples/continual_training.py) | Multi-round training with local saves |
-| [`benchmark_training.py`](examples/benchmark_training.py) | Train + HumanEval/MBPP benchmark + auto-upload |
-| [`full_benchmark_suite.py`](examples/full_benchmark_suite.py) | All 5 benchmarks with before/after comparison |
-| [`benchmark_only.py`](examples/benchmark_only.py) | Evaluate any model without training |
-| [`full_finetune.py`](examples/full_finetune.py) | Full parameter training (no LoRA) |
-| [`wandb_training.py`](examples/wandb_training.py) | W&B logging with auto API key detection |
-| [`export_only.py`](examples/export_only.py) | Standalone GGUF/MLX quantization |
-| [`kaggle_notebook.py`](examples/kaggle_notebook.py) | Copy-paste Kaggle cells |
-| [`cpt_raw_text.py`](examples/cpt_raw_text.py) | Train on books, PDFs, or raw text (CPT) |
-| [`dpo_alignment.py`](examples/dpo_alignment.py) | DPO / PPO / GRPO alignment after SFT |
-| [`merge_adapters.py`](examples/merge_adapters.py) | Merge multiple LoRA adapters (with weights) |
-| [`auto_hp_search.py`](examples/auto_hp_search.py) | Auto learning rate search before training |
-| [`recipe_tool_calling.py`](examples/recipe_tool_calling.py) | 🍳 Recipe: tool calling specialist |
-| [`recipe_reasoning_tools.py`](examples/recipe_reasoning_tools.py) | 🍳 Recipe: reasoning + tool calling (TxT360) |
-| [`recipe_from_scratch.py`](examples/recipe_from_scratch.py) | 🍳 Recipe: domain expert from books/blogs |
-| [`deepspeed_training.py`](examples/deepspeed_training.py) | DeepSpeed ZeRO-2 and ZeRO-3 multi-GPU |
-| [`distillation.py`](examples/distillation.py) | Distill 7B teacher → 1.2B student |
-| [`structured_output.py`](examples/structured_output.py) | JSON schema training + validation |
+| [`basic_training.py`](examples/getting_started/basic_training.py) | Simple Alpaca coding fine-tune |
+| [`kaggle_notebook.py`](examples/getting_started/kaggle_notebook.py) | Copy-paste Kaggle cells |
+| [`wandb_training.py`](examples/getting_started/wandb_training.py) | W&B logging with auto API key detection |
+| [`full_finetune.py`](examples/getting_started/full_finetune.py) | Full parameter training (no LoRA) |
+| [`continual_training.py`](examples/getting_started/continual_training.py) | Multi-round training with local saves |
+| [`multi_dataset_training.py`](examples/getting_started/multi_dataset_training.py) | Combining Hub + local + DataFrame sources |
+| [`tool_calling_training.py`](examples/getting_started/tool_calling_training.py) | Tool-calling-only with playwright MCP |
+| [`auto_hp_search.py`](examples/getting_started/auto_hp_search.py) | Auto learning rate search before training |
+
+### 📁 `training_modes/` — Advanced training techniques
+
+| Example | Description |
+|---------|-------------|
+| [`deepspeed_training.py`](examples/training_modes/deepspeed_training.py) | DeepSpeed ZeRO-2 and ZeRO-3 multi-GPU |
+| [`distillation.py`](examples/training_modes/distillation.py) | Distill 7B teacher → 1.2B student |
+| [`dpo_alignment.py`](examples/training_modes/dpo_alignment.py) | DPO / PPO / GRPO alignment after SFT |
+| [`merge_adapters.py`](examples/training_modes/merge_adapters.py) | Merge multiple LoRA adapters (with weights) |
+| [`cpt_raw_text.py`](examples/training_modes/cpt_raw_text.py) | Train on books, PDFs, or raw text (CPT) |
+| [`structured_output.py`](examples/training_modes/structured_output.py) | JSON schema training + validation |
+
+### 📁 `domain_specialists/` — Domain-specific fine-tuning
+
+| Example | Description |
+|---------|-------------|
+| [`terminal_agent.py`](examples/domain_specialists/terminal_agent.py) | Terminal agent with Nemotron-Terminal-Corpus |
+| [`medical_assistant.py`](examples/domain_specialists/medical_assistant.py) | 🏥 Healthcare: medical Q&A, patient-doctor |
+| [`sql_specialist.py`](examples/domain_specialists/sql_specialist.py) | 🗄️ Text-to-SQL & data analysis |
+| [`legal_assistant.py`](examples/domain_specialists/legal_assistant.py) | ⚖️ Legal reasoning, contract analysis |
+| [`finance_assistant.py`](examples/domain_specialists/finance_assistant.py) | 📈 Financial analysis, sentiment |
+| [`cybersecurity.py`](examples/domain_specialists/cybersecurity.py) | 🔒 Security analysis, CTF, pentesting |
+
+### 📁 `recipes/` — End-to-end model recipes
+
+| Example | Description |
+|---------|-------------|
+| [`recipe_tool_calling.py`](examples/recipes/recipe_tool_calling.py) | 🍳 Tool calling specialist |
+| [`recipe_reasoning_tools.py`](examples/recipes/recipe_reasoning_tools.py) | 🍳 Reasoning + tool calling (TxT360) |
+| [`recipe_from_scratch.py`](examples/recipes/recipe_from_scratch.py) | 🍳 Domain expert from books/blogs |
+| [`chatbot_assistant.py`](examples/recipes/chatbot_assistant.py) | 💬 Multi-turn chat + DPO alignment |
+| [`api_builder.py`](examples/recipes/api_builder.py) | 🔧 API dev: REST, OpenAPI, function calling |
+| [`math_reasoning.py`](examples/recipes/math_reasoning.py) | 🧮 Math reasoning with `<think>` traces |
+| [`multilang_coding.py`](examples/recipes/multilang_coding.py) | 💻 Multi-language coder, code reviewer |
+
+### 📁 `advanced/` — Benchmarking & export
+
+| Example | Description |
+|---------|-------------|
+| [`benchmark_training.py`](examples/advanced/benchmark_training.py) | Train + HumanEval/MBPP benchmark + auto-upload |
+| [`full_benchmark_suite.py`](examples/advanced/full_benchmark_suite.py) | All 9 benchmarks with before/after comparison |
+| [`benchmark_only.py`](examples/advanced/benchmark_only.py) | Evaluate any model without training |
+| [`export_only.py`](examples/advanced/export_only.py) | Standalone GGUF/MLX quantization |
 
 ## 📚 Documentation
 
