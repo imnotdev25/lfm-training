@@ -20,6 +20,9 @@ Fine-tune **Liquid LFM 2.5 1.2B** for coding tasks on Kaggle multi-GPU — with 
 - 📈 **Eval split** — hold out a % for validation loss tracking during training
 - 📝 **Auto model card** — generates a HuggingFace README.md with config, benchmarks, and hardware
 - 📉 **W&B / TensorBoard** — optional training metric logging
+- 🎯 **DPO alignment** — preference tuning after SFT via TRL's DPOTrainer
+- 🔗 **LoRA adapter merging** — combine multiple adapters into a single model with weighted blending
+- 🔍 **Auto HP search** — try multiple learning rates and pick the best based on eval loss
 
 ## Installation
 
@@ -114,6 +117,12 @@ lfm-train --help
 | `--export-gguf` | off | Export GGUF (Q4_K_M, Q6_K, Q8_0) |
 | `--export-mlx` | off | Export MLX (4/6/8-bit) |
 | `--export-dir` | `./lfm-exports` | Export scratch directory |
+| `--dpo-dataset` | *none* | HF dataset for DPO alignment (prompt/chosen/rejected) |
+| `--dpo-beta` | 0.1 | DPO β — higher = more conservative |
+| `--auto-hp-search` | off | Run auto hyperparameter search before training |
+| `--hp-trial-steps` | 50 | Steps per HP search trial |
+| `--merge-adapters` | *none* | Merge multiple LoRA adapters (skip training) |
+| `--merge-output` | `./lfm-merged` | Output dir for merged model |
 | `--simulate-error` | off | Test auto-publish mechanism |
 
 ## Supported Dataset Formats
@@ -204,10 +213,29 @@ See the [`examples/`](examples/) directory for ready-to-run scripts:
 | [`full_benchmark_suite.py`](examples/full_benchmark_suite.py) | All 5 benchmarks with before/after comparison |
 | [`benchmark_only.py`](examples/benchmark_only.py) | Evaluate any model without training |
 | [`full_finetune.py`](examples/full_finetune.py) | Full parameter training (no LoRA) |
+| [`wandb_training.py`](examples/wandb_training.py) | W&B logging with auto API key detection |
 | [`export_only.py`](examples/export_only.py) | Standalone GGUF/MLX quantization |
 | [`kaggle_notebook.py`](examples/kaggle_notebook.py) | Copy-paste Kaggle cells |
+| [`dpo_alignment.py`](examples/dpo_alignment.py) | SFT → DPO preference alignment pipeline |
+| [`merge_adapters.py`](examples/merge_adapters.py) | Merge multiple LoRA adapters (with weights) |
+| [`auto_hp_search.py`](examples/auto_hp_search.py) | Auto learning rate search before training |
+
+## 📚 Documentation
+
+New to LLM fine-tuning? Start here — no prerequisites beyond basic Python:
+
+| # | Guide | What you'll learn |
+|---|-------|-------------------|
+| 1 | [What is an LLM?](docs/01-what-is-an-llm.md) | Tokens, embeddings, attention, transformers |
+| 2 | [How Training Works](docs/02-how-training-works.md) | Loss functions, backprop, gradient descent |
+| 3 | [Fine-Tuning vs Scratch](docs/03-fine-tuning-explained.md) | Transfer learning, catastrophic forgetting |
+| 4 | [LoRA Explained](docs/04-lora-explained.md) | Low-rank adapters, the math, pure Python impl |
+| 5 | [Full Fine-Tuning](docs/05-full-fine-tuning.md) | Gradient checkpointing, memory management |
+| 6 | [Data Preparation](docs/06-data-preparation.md) | Formats, tokenization, quality filters |
+| 7 | [Evaluation & Benchmarks](docs/07-evaluation-and-benchmarks.md) | HumanEval, MBPP, pass@k metric |
+| 8 | [Quantization & Export](docs/08-quantization-and-export.md) | GGUF, MLX, INT4/INT8 |
+| 9 | [Architecture Deep-Dive](docs/09-architecture-deep-dive.md) | How lfm-trainer is built |
 
 ## License
 
 MIT
-

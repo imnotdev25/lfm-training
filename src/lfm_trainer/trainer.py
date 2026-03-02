@@ -40,6 +40,17 @@ def run_training(cfg: TrainingConfig) -> None:
     5. Train with error-resilient wrapper
     6. Export GGUF / MLX quantized versions (if enabled)
     """
+    # ── 0. Auto HP Search (optional) ──────────────────────────────────
+    if cfg.auto_hp_search:
+        from lfm_trainer.hp_search import auto_hp_search
+
+        logger.info("Running auto hyperparameter search…")
+        cfg = auto_hp_search(
+            cfg,
+            trial_steps=cfg.hp_search_trials_steps,
+        )
+        logger.info("Best HP: lr=%s, lora_r=%s", cfg.learning_rate, cfg.lora_r)
+
     # ── 1. Model & tokenizer ──────────────────────────────────────────
     logger.info("Loading model: %s", cfg.model_name)
 
@@ -207,7 +218,14 @@ def run_training(cfg: TrainingConfig) -> None:
             training_time_seconds=training_time,
         )
 
-    # ── 8. Post-training export (GGUF / MLX) ──────────────────────────
+    # ── 8. DPO alignment (optional) ────────────────────────────────────
+    if cfg.dpo_dataset:
+        from lfm_trainer.dpo import run_dpo
+
+        logger.info("Starting DPO alignment stage…")
+        run_dpo(cfg, model=model, tokenizer=tokenizer)
+
+    # ── 9. Post-training export (GGUF / MLX) ──────────────────────────
     if cfg.export_gguf or cfg.export_mlx:
         from lfm_trainer.callbacks import _version_tag
 

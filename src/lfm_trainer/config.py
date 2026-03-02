@@ -124,6 +124,18 @@ class TrainingConfig:
     benchmark_names: Optional[list[str]] = None  # None = ["humaneval", "mbpp"]; pass ["all"] for all
     generate_model_card: bool = True
 
+    # ── DPO / Preference Alignment ────────────────────────────────────
+    dpo_dataset: Optional[str] = None       # HF dataset with prompt/chosen/rejected
+    dpo_beta: float = 0.1                   # DPO β — higher = more conservative
+    dpo_epochs: int = 1
+    dpo_learning_rate: float = 5e-5
+    dpo_batch_size: int = 2
+    dpo_sft_model: Optional[str] = None     # Override path to SFT adapter for DPO
+
+    # ── Auto Hyperparameter Search ────────────────────────────────────
+    auto_hp_search: bool = False
+    hp_search_trials_steps: int = 50        # Steps per trial
+
     # ── Debug ──────────────────────────────────────────────────────────
     simulate_error: bool = False
 

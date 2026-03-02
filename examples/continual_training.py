@@ -1,67 +1,82 @@
 """
 Example: Continual training — retrain a previously fine-tuned model on new data.
 
+Supports resuming from:
+  - Local paths:  ./lfm-checkpoints/final-adapter
+  - HF Hub repos: your-username/lfm-code-v1
+
 Workflow:
-    1. First run: train on coding dataset → saved locally (no push)
-    2. Second run: load that adapter, train on tool-calling data → saved locally
-    3. Third run: load again, train on domain data → push final to Hub + export
+    1. First run: train on coding dataset → push to Hub as v1
+    2. Second run: resume from Hub v1, train on tool-calling → push as v2
+    3. Third run: resume from Hub v2, train on domain data → push final v3
 
 Each round builds on the previous adapter's knowledge.
 
 Usage on Kaggle:
-    # Round 1: Save locally only
-    !lfm-train --dataset sahil2801/CodeAlpaca-20k --no-push
+    # Round 1: Initial training
+    !lfm-train --dataset sahil2801/CodeAlpaca-20k --hub-repo user/lfm-v1
 
-    # Round 2: Resume from round 1, still local
+    # Round 2: Resume from published Hub model
     !lfm-train \
-        --resume-from ./lfm-checkpoints/final-adapter \
+        --resume-from user/lfm-v1 \
         --dataset jdaddyalbs/playwright-mcp-toolcalling \
         --tool-calling-only \
-        --output-dir ./lfm-checkpoints-r2 \
-        --no-push
+        --hub-repo user/lfm-v2
 
-    # Round 3: Resume from round 2, push final to Hub
+    # Round 3: Resume again, final push + export
     !lfm-train \
-        --resume-from ./lfm-checkpoints-r2/final-adapter \
+        --resume-from user/lfm-v2 \
         --dataset peteromallet/dataclaw-peteromallet \
-        --hub-repo your-username/lfm-code-final \
-        --export-gguf
+        --hub-repo user/lfm-final \
+        --export-gguf --benchmark
 """
 
 from lfm_trainer.config import TrainingConfig
+from lfm_trainer.trainer import run_training
 
-# ── Round 1: Base coding fine-tune (local only) ──────────────────────────
+# ── Round 1: Base coding fine-tune → push to Hub ─────────────────────────
 cfg_round1 = TrainingConfig(
     model_name="liquid/LFM2.5-1.2B-Base",
     dataset_paths=["sahil2801/CodeAlpaca-20k"],
-    output_dir="./lfm-checkpoints-r1",
-    push_to_hub=False,              # ← Save locally, don't push
+    hub_repo_id="your-username/lfm-code-v1",
+    push_to_hub=True,
     num_train_epochs=1,
 )
 # run_training(cfg_round1)
-# Output: ./lfm-checkpoints-r1/final-adapter/
 
-# ── Round 2: Add tool-calling (local only) ───────────────────────────────
+# ── Round 2: Resume from Hub repo → add tool-calling ─────────────────────
 cfg_round2 = TrainingConfig(
     model_name="liquid/LFM2.5-1.2B-Base",
-    resume_from_model="./lfm-checkpoints-r1/final-adapter",  # Load round 1
+    resume_from_model="your-username/lfm-code-v1",  # ← loads from HF Hub!
     dataset_paths=["jdaddyalbs/playwright-mcp-toolcalling"],
     tool_calling_only=True,
-    output_dir="./lfm-checkpoints-r2",
-    push_to_hub=False,              # ← Save locally, don't push
+    hub_repo_id="your-username/lfm-code-v2",
+    push_to_hub=True,
     num_train_epochs=2,
 )
 # run_training(cfg_round2)
-# Output: ./lfm-checkpoints-r2/final-adapter/
 
-# ── Round 3: Final round — push to Hub + export GGUF ─────────────────────
+# ── Round 3: Resume again → final model with export + benchmarks ─────────
 cfg_round3 = TrainingConfig(
     model_name="liquid/LFM2.5-1.2B-Base",
-    resume_from_model="./lfm-checkpoints-r2/final-adapter",  # Load round 2
+    resume_from_model="your-username/lfm-code-v2",  # ← loads from HF Hub!
     dataset_paths=["peteromallet/dataclaw-peteromallet"],
     hub_repo_id="your-username/lfm-code-final",
-    push_to_hub=True,               # ← Push final model to Hub
-    export_gguf=True,                # ← Export GGUF quantized versions
+    push_to_hub=True,
+    export_gguf=True,
+    run_benchmark=True,
+    benchmark_before_after=True,
     num_train_epochs=1,
 )
 # run_training(cfg_round3)
+
+
+# ── Alternative: resume from local path ──────────────────────────────────
+# If you saved locally instead of pushing to Hub:
+#
+# cfg = TrainingConfig(
+#     model_name="liquid/LFM2.5-1.2B-Base",
+#     resume_from_model="./lfm-checkpoints/final-adapter",  # ← local path
+#     dataset_paths=["new-dataset"],
+#     push_to_hub=False,
+# )

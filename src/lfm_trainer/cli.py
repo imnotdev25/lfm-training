@@ -206,6 +206,46 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip auto-generating a HuggingFace model card.",
     )
 
+    # ── DPO / Preference Alignment ────────────────────────────────────
+    p.add_argument(
+        "--dpo-dataset",
+        default=None,
+        help="HF dataset for DPO alignment (must have prompt/chosen/rejected columns).",
+    )
+    p.add_argument(
+        "--dpo-beta",
+        type=float,
+        default=0.1,
+        help="DPO β parameter — higher is more conservative (default: 0.1).",
+    )
+
+    # ── Auto HP Search ────────────────────────────────────────────────
+    p.add_argument(
+        "--auto-hp-search",
+        action="store_true",
+        help="Run auto hyperparameter search before training.",
+    )
+    p.add_argument(
+        "--hp-trial-steps",
+        type=int,
+        default=50,
+        help="Steps per HP search trial (default: 50).",
+    )
+
+    # ── LoRA Merge ────────────────────────────────────────────────────
+    p.add_argument(
+        "--merge-adapters",
+        nargs="+",
+        default=None,
+        metavar="ADAPTER",
+        help="Merge multiple LoRA adapters into a single model (skip training).",
+    )
+    p.add_argument(
+        "--merge-output",
+        default="./lfm-merged",
+        help="Output directory for merged model (default: ./lfm-merged).",
+    )
+
     # ── Debug ──────────────────────────────────────────────────────────
     p.add_argument(
         "--simulate-error",
@@ -267,8 +307,26 @@ def main(argv: list[str] | None = None) -> None:
             else args.benchmarks
         ),
         generate_model_card=not args.no_model_card,
+        dpo_dataset=args.dpo_dataset,
+        dpo_beta=args.dpo_beta,
+        auto_hp_search=args.auto_hp_search,
+        hp_search_trials_steps=args.hp_trial_steps,
         simulate_error=args.simulate_error,
     )
+
+    # ── LoRA merge mode (skip training) ───────────────────────────────
+    if args.merge_adapters:
+        from lfm_trainer.merge import merge_adapters
+
+        merge_adapters(
+            base_model_name=cfg.model_name,
+            adapter_paths=args.merge_adapters,
+            output_dir=args.merge_output,
+            push_to_hub=cfg.push_to_hub,
+            hub_repo_id=cfg.hub_repo_id,
+            hf_token=cfg.hf_token,
+        )
+        return
 
     run_training(cfg)
 
