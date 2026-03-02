@@ -44,7 +44,7 @@ cfg_adapters = TrainingConfig(
     model_name="liquid/LFM2.5-1.2B-Base",
 
     # Load the dataset_adapters config (code + math + SWE)
-    dataset_paths=["nvidia/Nemotron-Terminal-Corpus"],
+    dataset_paths=["nvidia/Nemotron-Terminal-Corpus:dataset_adapters"],
 
     # Training settings for large dataset
     num_train_epochs=1,              # 1 epoch is enough for 226K samples
@@ -72,7 +72,7 @@ cfg_skills_easy = TrainingConfig(
     model_name="liquid/LFM2.5-1.2B-Base",
 
     # Easy-level terminal skills
-    dataset_paths=["nvidia/Nemotron-Terminal-Corpus"],
+    dataset_paths=["nvidia/Nemotron-Terminal-Corpus:skill_based_easy"],
 
     num_train_epochs=2,
     learning_rate=2e-4,
@@ -96,7 +96,7 @@ cfg_full_terminal = TrainingConfig(
 
     # Mix multiple terminal datasets
     dataset_paths=[
-        "nvidia/Nemotron-Terminal-Corpus",
+        "nvidia/Nemotron-Terminal-Corpus:skill_based_mixed",
         "sahil2801/CodeAlpaca-20k",          # Add general coding for balance
     ],
 
@@ -137,7 +137,7 @@ cfg_distill_terminal = TrainingConfig(
     model_name="liquid/LFM2.5-1.2B-Base",
     distill_teacher="nvidia/Nemotron-Terminal-14B",  # Large terminal-skilled teacher
 
-    dataset_paths=["nvidia/Nemotron-Terminal-Corpus"],
+    dataset_paths=["nvidia/Nemotron-Terminal-Corpus:dataset_adapters"],
 
     distill_temperature=2.0,
     distill_alpha=0.5,

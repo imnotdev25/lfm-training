@@ -194,9 +194,14 @@ def _load_single_source(path: str, text_column: str = "text") -> Dataset:
             raise ValueError(f"Unsupported local file format: {suffix}")
         ds = Dataset.from_pandas(df)
     else:
-        # Treat as a HuggingFace Hub dataset ID
-        logger.info("Loading HuggingFace dataset: %s", path)
-        ds = load_dataset(path, split="train")
+        # Treat as a HuggingFace Hub dataset ID (with optional config)
+        if ":" in path and not path.startswith(("http://", "https://")):
+            repo_id, config_name = path.split(":", 1)
+            logger.info("Loading HuggingFace dataset: %s (config: %s)", repo_id, config_name)
+            ds = load_dataset(repo_id, config_name, split="train")
+        else:
+            logger.info("Loading HuggingFace dataset: %s", path)
+            ds = load_dataset(path, split="train")
 
     return _apply_formatters(ds, text_column)
 
