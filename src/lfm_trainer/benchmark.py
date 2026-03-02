@@ -31,6 +31,9 @@ AVAILABLE_BENCHMARKS = [
     "multiple",    # MultiPL-E
     "bigcodebench",
     "evalplus",    # HumanEval+ via evalplus library
+    "toolcall",    # Tool / function calling accuracy
+    "gsm8k",       # Grade school math (reasoning)
+    "reasoning",   # ARC-Challenge (science reasoning)
 ]
 
 DEFAULT_BENCHMARKS = ["humaneval", "mbpp"]
@@ -474,6 +477,282 @@ def _run_evalplus(
     )
 
 
+# ── Tool Calling Benchmark ───────────────────────────────────────────────
+
+def _run_toolcall(
+    model,
+    tokenizer,
+    n_samples: int = 1,
+    max_problems: Optional[int] = None,
+) -> BenchmarkResult:
+    """Run tool calling benchmark — tests function name and argument extraction.
+
+    Uses synthetic tool-calling scenarios: given tool definitions + user query,
+    check if the model produces a valid function call with correct name/args.
+    """
+    import json
+    from datasets import load_dataset
+
+    logger.info("Running Tool Calling benchmark…")
+
+    # Load a tool calling evaluation dataset
+    try:
+        ds = load_dataset("Salesforce/xlam-function-calling-60k", split="train")
+    except Exception:
+        logger.warning("⚠️  Could not load tool calling dataset, using built-in problems")
+        ds = None
+
+    # Built-in tool calling test cases
+    test_cases = [
+        {
+            "tools": [{"name": "get_weather", "parameters": {"location": "string", "unit": "string"}}],
+            "query": "What's the weather in San Francisco in celsius?",
+            "expected_fn": "get_weather",
+            "expected_args": ["San Francisco", "celsius"],
+        },
+        {
+            "tools": [{"name": "search_web", "parameters": {"query": "string", "max_results": "integer"}}],
+            "query": "Search for Python tutorials, give me 5 results",
+            "expected_fn": "search_web",
+            "expected_args": ["Python tutorials"],
+        },
+        {
+            "tools": [{"name": "calculate", "parameters": {"expression": "string"}}],
+            "query": "What is 25 * 4 + 10?",
+            "expected_fn": "calculate",
+            "expected_args": ["25 * 4 + 10"],
+        },
+        {
+            "tools": [{"name": "send_email", "parameters": {"to": "string", "subject": "string", "body": "string"}}],
+            "query": "Send an email to john@example.com about the meeting tomorrow",
+            "expected_fn": "send_email",
+            "expected_args": ["john@example.com"],
+        },
+        {
+            "tools": [{"name": "create_file", "parameters": {"filename": "string", "content": "string"}}],
+            "query": "Create a file called hello.py with a hello world program",
+            "expected_fn": "create_file",
+            "expected_args": ["hello.py"],
+        },
+    ]
+
+    # If HF dataset loaded, add more test cases from it
+    if ds is not None:
+        limit = min(max_problems or 50, 50, len(ds))
+        for i in range(limit):
+            row = ds[i]
+            try:
+                tools_str = row.get("tools", "[]")
+                tools = json.loads(tools_str) if isinstance(tools_str, str) else tools_str
+                answer_str = row.get("answers", "[]")
+                answers = json.loads(answer_str) if isinstance(answer_str, str) else answer_str
+                if tools and answers:
+                    expected_fn = answers[0].get("name", "") if isinstance(answers[0], dict) else ""
+                    test_cases.append({
+                        "tools": tools[:3],  # limit tool defs
+                        "query": row.get("query", ""),
+                        "expected_fn": expected_fn,
+                        "expected_args": [],
+                    })
+            except (json.JSONDecodeError, KeyError, IndexError):
+                continue
+
+    if max_problems:
+        test_cases = test_cases[:max_problems]
+
+    correct = 0
+    total = len(test_cases)
+
+    for tc in test_cases:
+        tools_json = json.dumps(tc["tools"], indent=2)
+        prompt = (
+            f"You have access to the following tools:\n```json\n{tools_json}\n```\n\n"
+            f"User: {tc['query']}\n\n"
+            f"Call the appropriate function. Respond with ONLY the function call in format: "
+            f"function_name(arg1, arg2, ...)\n\nAssistant:"
+        )
+
+        completions = _generate_completion(model, tokenizer, prompt, max_new_tokens=128)
+        response = completions[0].strip()
+
+        # Check if correct function name is in response
+        fn_correct = tc["expected_fn"].lower() in response.lower()
+
+        # Check if expected args appear in response
+        args_correct = all(
+            arg.lower() in response.lower()
+            for arg in tc.get("expected_args", [])
+        ) if tc.get("expected_args") else True
+
+        if fn_correct and args_correct:
+            correct += 1
+
+    pass_at_1 = correct / total if total > 0 else 0.0
+    logger.info("Tool Calling: %d/%d correct (%.1f%%)", correct, total, pass_at_1 * 100)
+
+    return BenchmarkResult(
+        benchmark="Tool Calling",
+        pass_at_1=pass_at_1,
+        num_problems=total,
+        num_correct=correct,
+    )
+
+
+# ── GSM8K — Grade School Math Reasoning ──────────────────────────────────
+
+def _extract_number(text: str) -> Optional[float]:
+    """Extract the final numeric answer from model output."""
+    import re
+
+    # Look for #### pattern (GSM8K standard)
+    match = re.search(r"####\s*([\-\d,\.]+)", text)
+    if match:
+        try:
+            return float(match.group(1).replace(",", ""))
+        except ValueError:
+            pass
+
+    # Look for "answer is X" pattern
+    match = re.search(r"(?:answer|result)\s+(?:is|=)\s*([\-\d,\.]+)", text, re.IGNORECASE)
+    if match:
+        try:
+            return float(match.group(1).replace(",", ""))
+        except ValueError:
+            pass
+
+    # Fallback: last number in text
+    numbers = re.findall(r"[\-]?\d+\.?\d*", text)
+    if numbers:
+        try:
+            return float(numbers[-1])
+        except ValueError:
+            pass
+
+    return None
+
+
+def _run_gsm8k(
+    model,
+    tokenizer,
+    n_samples: int = 1,
+    max_problems: Optional[int] = None,
+) -> BenchmarkResult:
+    """Run GSM8K benchmark — grade school math word problems.
+
+    Tests chain-of-thought reasoning ability. 8.5K problems with step-by-step
+    solutions. Measures if the model can arrive at the correct numeric answer.
+    """
+    from datasets import load_dataset
+
+    logger.info("Running GSM8K benchmark…")
+    ds = load_dataset("openai/gsm8k", "main", split="test")
+
+    limit = min(max_problems or 200, len(ds))
+    correct = 0
+    total = 0
+
+    for i in range(limit):
+        row = ds[i]
+        question = row["question"]
+        answer_text = row["answer"]
+
+        # Extract ground truth answer (after ####)
+        gt_answer = _extract_number(answer_text)
+        if gt_answer is None:
+            continue
+
+        prompt = (
+            f"Solve this math problem step by step. "
+            f"Put your final answer after ####.\n\n"
+            f"Question: {question}\n\n"
+            f"Solution:"
+        )
+
+        completions = _generate_completion(model, tokenizer, prompt, max_new_tokens=512)
+        predicted = _extract_number(completions[0])
+
+        total += 1
+        if predicted is not None and abs(predicted - gt_answer) < 0.01:
+            correct += 1
+
+    pass_at_1 = correct / total if total > 0 else 0.0
+    logger.info("GSM8K: %d/%d correct (%.1f%%)", correct, total, pass_at_1 * 100)
+
+    return BenchmarkResult(
+        benchmark="GSM8K (Math Reasoning)",
+        pass_at_1=pass_at_1,
+        num_problems=total,
+        num_correct=correct,
+    )
+
+
+# ── Reasoning Benchmark (ARC-style) ─────────────────────────────────────
+
+def _run_reasoning(
+    model,
+    tokenizer,
+    n_samples: int = 1,
+    max_problems: Optional[int] = None,
+) -> BenchmarkResult:
+    """Run ARC-Challenge reasoning benchmark — science questions.
+
+    ARC (AI2 Reasoning Challenge) tests scientific reasoning with
+    multiple-choice questions from grade-school science exams.
+    """
+    from datasets import load_dataset
+
+    logger.info("Running ARC-Challenge reasoning benchmark…")
+    ds = load_dataset("allenai/ai2_arc", "ARC-Challenge", split="test")
+
+    limit = min(max_problems or 200, len(ds))
+    correct = 0
+    total = 0
+
+    for i in range(limit):
+        row = ds[i]
+        question = row["question"]
+        choices = row["choices"]
+        answer_key = row["answerKey"]
+
+        # Build multiple choice prompt
+        choice_labels = choices["label"]
+        choice_texts = choices["text"]
+        choices_str = "\n".join(
+            f"  {label}. {text}"
+            for label, text in zip(choice_labels, choice_texts)
+        )
+
+        prompt = (
+            f"Answer the following question. Think step by step, "
+            f"then give your answer as a single letter.\n\n"
+            f"Question: {question}\n{choices_str}\n\n"
+            f"Answer:"
+        )
+
+        completions = _generate_completion(model, tokenizer, prompt, max_new_tokens=256)
+        response = completions[0].strip()
+
+        # Extract answer letter from response
+        import re
+        # Look for standalone letter
+        match = re.search(r'\b([A-E])\b', response[:50])
+        predicted = match.group(1) if match else ""
+
+        total += 1
+        if predicted.upper() == answer_key.upper():
+            correct += 1
+
+    pass_at_1 = correct / total if total > 0 else 0.0
+    logger.info("ARC-Challenge: %d/%d correct (%.1f%%)", correct, total, pass_at_1 * 100)
+
+    return BenchmarkResult(
+        benchmark="ARC-Challenge (Reasoning)",
+        pass_at_1=pass_at_1,
+        num_problems=total,
+        num_correct=correct,
+    )
+
+
 # ── Public API ────────────────────────────────────────────────────────────
 
 _RUNNERS = {
@@ -482,6 +761,9 @@ _RUNNERS = {
     "multiple": _run_multiple,
     "bigcodebench": _run_bigcodebench,
     "evalplus": _run_evalplus,
+    "toolcall": _run_toolcall,
+    "gsm8k": _run_gsm8k,
+    "reasoning": _run_reasoning,
 }
 
 

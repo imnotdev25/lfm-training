@@ -250,6 +250,25 @@ def _build_parser() -> argparse.ArgumentParser:
         default=2048,
         help="Characters per chunk for CPT (default: 2048).",
     )
+
+    # ── Reasoning ──────────────────────────────────────────────────────
+    p.add_argument(
+        "--enable-reasoning",
+        action="store_true",
+        help="Enable <think> reasoning tags in training data.",
+    )
+    p.add_argument(
+        "--reasoning-dataset",
+        default=None,
+        help="HF dataset for reasoning training (e.g., LLM360/TxT360-3efforts).",
+    )
+    p.add_argument(
+        "--reasoning-max-samples",
+        type=int,
+        default=100_000,
+        help="Max samples from reasoning dataset (default: 100000).",
+    )
+
     # ── Auto HP Search ────────────────────────────────────────────────
     p.add_argument(
         "--auto-hp-search",
@@ -345,6 +364,9 @@ def main(argv: list[str] | None = None) -> None:
         grpo_num_generations=args.grpo_generations,
         cpt_sources=args.cpt_sources,
         cpt_chunk_size=args.cpt_chunk_size,
+        enable_reasoning=args.enable_reasoning,
+        reasoning_dataset=args.reasoning_dataset,
+        reasoning_max_samples=args.reasoning_max_samples,
         auto_hp_search=args.auto_hp_search,
         hp_search_trials_steps=args.hp_trial_steps,
         simulate_error=args.simulate_error,

@@ -110,8 +110,8 @@ def _format_messages(row: dict) -> dict:
         role = msg.get("role", "unknown")
         content = msg.get("content", "") or ""
 
-        # Include thinking traces if present (coding-agent datasets)
-        thinking = msg.get("thinking", "")
+        # Include reasoning traces — supports both 'think' (TxT360) and 'thinking' (DataClaw)
+        reasoning = msg.get("think", "") or msg.get("thinking", "")
 
         if role == "tool":
             # Tool result message — wrap in LFM result tokens
@@ -122,11 +122,18 @@ def _format_messages(row: dict) -> dict:
             )
 
         elif role == "assistant":
-            block = f"### Assistant:\n{content}"
+            # Build assistant block: <think> BEFORE content (think-then-act)
+            parts_inner = []
 
-            # Thinking traces (DataClaw coding-agent style)
-            if thinking:
-                block += f"\n\n<thinking>\n{thinking}\n</thinking>"
+            # Reasoning block (placed first — model thinks before acting)
+            if reasoning:
+                parts_inner.append(f"<think>\n{reasoning}\n</think>")
+
+            # Main content
+            if content:
+                parts_inner.append(content)
+
+            block = f"### Assistant:\n" + "\n\n".join(parts_inner) if parts_inner else "### Assistant:"
 
             # ── Tool calls: OpenAI-style (tool_calls list) ────────────
             tool_calls = msg.get("tool_calls", [])

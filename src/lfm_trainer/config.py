@@ -151,6 +151,11 @@ class TrainingConfig:
     cpt_epochs: int = 2                     # CPT training epochs
     cpt_learning_rate: float = 5e-5         # Lower than SFT
 
+    # ── Reasoning ─────────────────────────────────────────────────────
+    enable_reasoning: bool = False           # Inject <think> tags in data formatting
+    reasoning_dataset: Optional[str] = None  # HF dataset for reasoning (e.g., TxT360)
+    reasoning_max_samples: int = 100_000     # Cap rows from reasoning dataset
+
     # ── Auto Hyperparameter Search ────────────────────────────────────
     auto_hp_search: bool = False
     hp_search_trials_steps: int = 50        # Steps per trial
