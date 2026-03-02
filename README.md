@@ -82,8 +82,11 @@ lfm-train --help
 |------|---------|-------------|
 | `--dataset` | *(required)* | Dataset path or Hub ID (repeatable) |
 | `--model` | `liquid/LFM2.5-1.2B-Base` | Model to fine-tune |
+| `--resume-from` | — | Path or Hub ID of a prior adapter for continual training |
+| `--tool-calling-only` | off | Keep only samples with tool calls |
 | `--hf-token` | *auto-detect* | HuggingFace token |
 | `--hub-repo` | auto | Hub repo to push to |
+| `--no-push` | off | Save locally only, skip Hub push |
 | `--epochs` | 3 | Training epochs |
 | `--batch-size` | 2 | Per-device batch size |
 | `--lr` | 2e-4 | Learning rate |
@@ -105,8 +108,48 @@ The data loader auto-detects column layouts:
 | **Alpaca** | `instruction` + `output` columns | `iamtarun/python_code_instructions_18k_alpaca` |
 | **Prompt/Response** | `prompt` + `response` columns | Generic Q&A datasets |
 | **Conversational** | `messages` column (with tool calls) | `peteromallet/dataclaw-peteromallet` |
-| **Text** | Single `text` column | Pre-formatted datasets |
+| **Text** | Single `text` column | `jdaddyalbs/playwright-mcp-toolcalling` |
 | **DataFrame** | Direct `pd.DataFrame` objects | In-memory data |
+
+## Tool-Calling Training
+
+Train exclusively on tool-calling examples using `--tool-calling-only`:
+
+```bash
+lfm-train \
+    --dataset jdaddyalbs/playwright-mcp-toolcalling \
+    --tool-calling-only \
+    --hub-repo your-username/lfm-tools \
+    --max-seq-length 4096
+```
+
+The filter keeps only samples containing tool call patterns (`<|tool_call_start|>`, `tool_calls`, `function_call`, etc.). Works with any dataset — pre-formatted or auto-formatted.
+
+## Continual Training
+
+Train iteratively across multiple datasets, saving locally between rounds:
+
+```bash
+# Round 1: Coding skills → save locally
+lfm-train --dataset sahil2801/CodeAlpaca-20k --no-push
+
+# Round 2: Add tool-calling on top → save locally
+lfm-train \
+    --resume-from ./lfm-checkpoints/final-adapter \
+    --dataset jdaddyalbs/playwright-mcp-toolcalling \
+    --tool-calling-only \
+    --output-dir ./lfm-checkpoints-r2 \
+    --no-push
+
+# Round 3: Final round → push to Hub + export
+lfm-train \
+    --resume-from ./lfm-checkpoints-r2/final-adapter \
+    --dataset peteromallet/dataclaw-peteromallet \
+    --hub-repo your-username/lfm-final \
+    --export-gguf
+```
+
+Each `--resume-from` loads the prior adapter and continues learning from where it left off.
 
 ## How Auto-Publish Works
 
@@ -130,6 +173,20 @@ When `--export-gguf` or `--export-mlx` is enabled:
 
 > **Note:** MLX export requires Apple Silicon. Use `--export-gguf` on Kaggle (Linux), and `--export-mlx` locally on Mac.
 
+## Examples
+
+See the [`examples/`](examples/) directory for ready-to-run scripts:
+
+| Example | Description |
+|---------|-------------|
+| [`basic_training.py`](examples/basic_training.py) | Simple Alpaca coding fine-tune |
+| [`tool_calling_training.py`](examples/tool_calling_training.py) | Tool-calling-only with playwright MCP |
+| [`multi_dataset_training.py`](examples/multi_dataset_training.py) | Combining Hub + local + DataFrame sources |
+| [`continual_training.py`](examples/continual_training.py) | Multi-round training with local saves |
+| [`export_only.py`](examples/export_only.py) | Standalone GGUF/MLX quantization |
+| [`kaggle_notebook.py`](examples/kaggle_notebook.py) | Copy-paste Kaggle cells |
+
 ## License
 
 MIT
+

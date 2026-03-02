@@ -256,6 +256,50 @@ def filter_tool_calling_only(ds: Dataset) -> Dataset:
         "Tool-calling filter: kept %d / %d rows (%.1f%%)",
         len(ds), original_len, 100 * len(ds) / max(original_len, 1),
     )
+
+# ── Data quality filters ──────────────────────────────────────────────────
+
+def clean_dataset(
+    ds: Dataset,
+    min_length: int = 10,
+    max_length: int = 100_000,
+    deduplicate: bool = True,
+) -> Dataset:
+    """Apply data quality filters to a dataset.
+
+    - Remove empty / whitespace-only rows
+    - Remove rows shorter than ``min_length`` or longer than ``max_length``
+    - Deduplicate by text hash
+    """
+    original_len = len(ds)
+
+    # 1. Remove empty / whitespace-only
+    ds = ds.filter(lambda row: bool(row.get("text", "").strip()))
+    after_empty = len(ds)
+
+    # 2. Length filter
+    ds = ds.filter(lambda row: min_length <= len(row["text"]) <= max_length)
+    after_length = len(ds)
+
+    # 3. Deduplicate
+    if deduplicate:
+        seen: set[int] = set()
+        keep_indices = []
+        for i, row in enumerate(ds):
+            h = hash(row["text"])
+            if h not in seen:
+                seen.add(h)
+                keep_indices.append(i)
+        ds = ds.select(keep_indices)
+
+    logger.info(
+        "Data quality: %d → %d rows (empty: -%d, length: -%d, dedup: -%d)",
+        original_len,
+        len(ds),
+        original_len - after_empty,
+        after_empty - after_length,
+        after_length - len(ds) if deduplicate else 0,
+    )
     return ds
 
 
@@ -263,7 +307,11 @@ def load_datasets(
     sources: list[Union[str, pd.DataFrame]],
     text_column: str = "text",
     tool_calling_only: bool = False,
-) -> Dataset:
+    quality_filter: bool = False,
+    min_length: int = 10,
+    max_length: int = 100_000,
+    eval_split: float = 0.0,
+) -> Dataset | tuple[Dataset, Dataset]:
     """Load and merge multiple dataset sources into one unified Dataset.
 
     Parameters
@@ -278,10 +326,20 @@ def load_datasets(
     tool_calling_only:
         If True, filter the final dataset to keep only rows that contain
         tool-calling patterns (e.g. ``<|tool_call_start|>``, ``tool_calls``, etc.).
+    quality_filter:
+        If True, remove empty rows, length outliers, and duplicates.
+    min_length:
+        Minimum text length to keep (only when quality_filter=True).
+    max_length:
+        Maximum text length to keep (only when quality_filter=True).
+    eval_split:
+        Fraction of data to hold out for evaluation (0.0–1.0). If > 0,
+        returns a tuple of ``(train_dataset, eval_dataset)``.
 
     Returns
     -------
-    A single ``datasets.Dataset`` with a ``text`` column.
+    A single ``datasets.Dataset`` with a ``text`` column, or a tuple of
+    ``(train, eval)`` if ``eval_split > 0``.
     """
     if not sources:
         raise ValueError("At least one dataset source must be provided.")
@@ -302,4 +360,16 @@ def load_datasets(
     if tool_calling_only:
         merged = filter_tool_calling_only(merged)
 
+    if quality_filter:
+        merged = clean_dataset(merged, min_length=min_length, max_length=max_length)
+
+    if eval_split > 0:
+        split = merged.train_test_split(test_size=eval_split, seed=42)
+        logger.info(
+            "Train/eval split: %d train, %d eval (%.0f%%)",
+            len(split["train"]), len(split["test"]), eval_split * 100,
+        )
+        return split["train"], split["test"]
+
     return merged
+

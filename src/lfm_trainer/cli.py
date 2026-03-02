@@ -139,6 +139,50 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Directory for intermediate export files (default: ./lfm-exports).",
     )
 
+    # ── Data quality ───────────────────────────────────────────────────
+    p.add_argument(
+        "--quality-filter",
+        action="store_true",
+        help="Remove empty rows, length outliers, and duplicates from the dataset.",
+    )
+    p.add_argument(
+        "--eval-split",
+        type=float,
+        default=0.0,
+        help="Hold out a fraction for evaluation (e.g. 0.1 = 10%%). Reports eval loss during training.",
+    )
+
+    # ── Benchmarking ──────────────────────────────────────────────────
+    p.add_argument(
+        "--benchmark",
+        action="store_true",
+        help="Run HumanEval + MBPP benchmarks after training.",
+    )
+    p.add_argument(
+        "--benchmark-compare",
+        action="store_true",
+        help="Also benchmark the base model before training for a before/after comparison.",
+    )
+    p.add_argument(
+        "--benchmark-max",
+        type=int,
+        default=None,
+        help="Cap the number of benchmark problems (for quick testing).",
+    )
+
+    # ── Logging / reporting ───────────────────────────────────────────
+    p.add_argument(
+        "--report-to",
+        default="none",
+        choices=["none", "wandb", "tensorboard"],
+        help="Where to log training metrics (default: none).",
+    )
+    p.add_argument(
+        "--no-model-card",
+        action="store_true",
+        help="Skip auto-generating a HuggingFace model card.",
+    )
+
     # ── Debug ──────────────────────────────────────────────────────────
     p.add_argument(
         "--simulate-error",
@@ -166,6 +210,8 @@ def main(argv: list[str] | None = None) -> None:
         dataset_paths=args.datasets,
         dataset_text_column=args.text_column,
         tool_calling_only=args.tool_calling_only,
+        quality_filter=args.quality_filter,
+        eval_split=args.eval_split,
         hf_token=args.hf_token,
         hub_repo_id=args.hub_repo,
         num_train_epochs=args.epochs,
@@ -181,10 +227,15 @@ def main(argv: list[str] | None = None) -> None:
         save_steps=args.save_steps,
         fp16=not args.bf16,
         bf16=args.bf16,
+        report_to=args.report_to,
         export_gguf=args.export_gguf,
         export_mlx=args.export_mlx,
         export_output_dir=args.export_dir,
         push_to_hub=not args.no_push,
+        run_benchmark=args.benchmark,
+        benchmark_before_after=args.benchmark_compare,
+        benchmark_max_problems=args.benchmark_max,
+        generate_model_card=not args.no_model_card,
         simulate_error=args.simulate_error,
     )
 

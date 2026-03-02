@@ -93,11 +93,18 @@ def run_training(cfg: TrainingConfig) -> None:
 
     # ── 3. Dataset ────────────────────────────────────────────────────
     logger.info("Loading datasets: %s", cfg.dataset_paths)
-    dataset = load_datasets(
+    result = load_datasets(
         cfg.dataset_paths,
         text_column=cfg.dataset_text_column,
         tool_calling_only=cfg.tool_calling_only,
+        quality_filter=cfg.quality_filter,
+        eval_split=cfg.eval_split,
     )
+
+    if isinstance(result, tuple):
+        train_dataset, eval_dataset = result
+    else:
+        train_dataset, eval_dataset = result, None
 
     # ── 4. Trainer ────────────────────────────────────────────────────
     training_args = SFTConfig(
@@ -115,17 +122,26 @@ def run_training(cfg: TrainingConfig) -> None:
         save_strategy=cfg.save_strategy,
         save_total_limit=cfg.save_total_limit,
         max_length=cfg.max_seq_length,
-        report_to="none",
+        report_to=cfg.report_to,
     )
 
-    trainer = SFTTrainer(
+    trainer_kwargs = dict(
         model=model,
         args=training_args,
-        train_dataset=dataset,
+        train_dataset=train_dataset,
         processing_class=tokenizer,
     )
+    if eval_dataset is not None:
+        trainer_kwargs["eval_dataset"] = eval_dataset
+        training_args.eval_strategy = "steps"
+        training_args.eval_steps = cfg.save_steps
+
+    trainer = SFTTrainer(**trainer_kwargs)
 
     # ── 5. Train with error handling ──────────────────────────────────
+    import time as _time
+
+    _train_start = _time.time()
     repo_id = cfg.hub_repo_id or "lfm2.5-1.2b-code-finetune"
     safe_train(
         trainer=trainer,
@@ -137,8 +153,49 @@ def run_training(cfg: TrainingConfig) -> None:
         push_to_hub=cfg.push_to_hub,
         output_dir=cfg.output_dir,
     )
+    training_time = _time.time() - _train_start
 
-    # ── 6. Post-training export (GGUF / MLX) ──────────────────────────
+    # ── 6. Post-training benchmarks ───────────────────────────────────
+    benchmark_results = None
+    if cfg.run_benchmark:
+        from lfm_trainer.benchmark import run_before_after_benchmark, run_benchmarks
+
+        if cfg.benchmark_before_after:
+            # Load a fresh base model for comparison
+            logger.info("Loading fresh base model for before/after benchmark…")
+            base_model_clean = AutoModelForCausalLM.from_pretrained(
+                cfg.model_name,
+                trust_remote_code=cfg.trust_remote_code,
+                torch_dtype=torch.float16,
+                device_map="auto",
+            )
+            benchmark_results = run_before_after_benchmark(
+                model_before=base_model_clean,
+                model_after=model,
+                tokenizer=tokenizer,
+                max_problems=cfg.benchmark_max_problems,
+            )
+            del base_model_clean
+            torch.cuda.empty_cache()
+        else:
+            benchmark_results = run_benchmarks(
+                model=model,
+                tokenizer=tokenizer,
+                max_problems=cfg.benchmark_max_problems,
+            )
+
+    # ── 7. Model card ─────────────────────────────────────────────────
+    if cfg.generate_model_card:
+        from lfm_trainer.model_card import save_model_card
+
+        save_model_card(
+            cfg=cfg,
+            output_dir=cfg.output_dir,
+            benchmark_results=benchmark_results,
+            training_time_seconds=training_time,
+        )
+
+    # ── 8. Post-training export (GGUF / MLX) ──────────────────────────
     if cfg.export_gguf or cfg.export_mlx:
         from lfm_trainer.callbacks import _version_tag
 

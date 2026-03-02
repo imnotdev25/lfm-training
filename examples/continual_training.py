@@ -2,61 +2,67 @@
 Example: Continual training — retrain a previously fine-tuned model on new data.
 
 Workflow:
-    1. First run: train on coding dataset → adapter saved + pushed to Hub
-    2. Second run: load that adapter, train on tool-calling data
-    3. Third run: load again, train on domain-specific data
+    1. First run: train on coding dataset → saved locally (no push)
+    2. Second run: load that adapter, train on tool-calling data → saved locally
+    3. Third run: load again, train on domain data → push final to Hub + export
 
 Each round builds on the previous adapter's knowledge.
 
 Usage on Kaggle:
-    # Round 1: Initial coding fine-tune
-    !lfm-train --dataset sahil2801/CodeAlpaca-20k --hub-repo user/lfm-code
+    # Round 1: Save locally only
+    !lfm-train --dataset sahil2801/CodeAlpaca-20k --no-push
 
-    # Round 2: Add tool-calling skills on top of round 1
+    # Round 2: Resume from round 1, still local
     !lfm-train \
-        --resume-from user/lfm-code \
+        --resume-from ./lfm-checkpoints/final-adapter \
         --dataset jdaddyalbs/playwright-mcp-toolcalling \
         --tool-calling-only \
-        --hub-repo user/lfm-code-tools
+        --output-dir ./lfm-checkpoints-r2 \
+        --no-push
 
-    # Round 3: Add domain data on top of round 2
+    # Round 3: Resume from round 2, push final to Hub
     !lfm-train \
-        --resume-from user/lfm-code-tools \
-        --dataset my_domain_data.csv \
-        --hub-repo user/lfm-code-tools-domain \
+        --resume-from ./lfm-checkpoints-r2/final-adapter \
+        --dataset peteromallet/dataclaw-peteromallet \
+        --hub-repo your-username/lfm-code-final \
         --export-gguf
 """
 
 from lfm_trainer.config import TrainingConfig
 from lfm_trainer.trainer import run_training
 
-# ── Round 1: Base coding fine-tune ────────────────────────────────────────
+# ── Round 1: Base coding fine-tune (local only) ──────────────────────────
 cfg_round1 = TrainingConfig(
     model_name="liquid/LFM2.5-1.2B-Base",
     dataset_paths=["sahil2801/CodeAlpaca-20k"],
-    hub_repo_id="your-username/lfm-code-r1",
+    output_dir="./lfm-checkpoints-r1",
+    push_to_hub=False,              # ← Save locally, don't push
     num_train_epochs=1,
 )
 # run_training(cfg_round1)
+# Output: ./lfm-checkpoints-r1/final-adapter/
 
-# ── Round 2: Add tool-calling on top ──────────────────────────────────────
+# ── Round 2: Add tool-calling (local only) ───────────────────────────────
 cfg_round2 = TrainingConfig(
-    model_name="liquid/LFM2.5-1.2B-Base",       # Same base model
-    resume_from_model="your-username/lfm-code-r1",  # Load round 1 adapter
+    model_name="liquid/LFM2.5-1.2B-Base",
+    resume_from_model="./lfm-checkpoints-r1/final-adapter",  # Load round 1
     dataset_paths=["jdaddyalbs/playwright-mcp-toolcalling"],
     tool_calling_only=True,
-    hub_repo_id="your-username/lfm-code-r2",
+    output_dir="./lfm-checkpoints-r2",
+    push_to_hub=False,              # ← Save locally, don't push
     num_train_epochs=2,
 )
 # run_training(cfg_round2)
+# Output: ./lfm-checkpoints-r2/final-adapter/
 
-# ── Round 3: Add domain-specific data ────────────────────────────────────
+# ── Round 3: Final round — push to Hub + export GGUF ─────────────────────
 cfg_round3 = TrainingConfig(
     model_name="liquid/LFM2.5-1.2B-Base",
-    resume_from_model="your-username/lfm-code-r2",  # Load round 2 adapter
+    resume_from_model="./lfm-checkpoints-r2/final-adapter",  # Load round 2
     dataset_paths=["peteromallet/dataclaw-peteromallet"],
-    hub_repo_id="your-username/lfm-code-r3",
+    hub_repo_id="your-username/lfm-code-final",
+    push_to_hub=True,               # ← Push final model to Hub
+    export_gguf=True,                # ← Export GGUF quantized versions
     num_train_epochs=1,
-    export_gguf=True,  # Export final version
 )
 # run_training(cfg_round3)

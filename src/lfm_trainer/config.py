@@ -50,6 +50,8 @@ class TrainingConfig:
     dataset_text_column: str = "text"
     max_seq_length: int = 2048
     tool_calling_only: bool = False
+    quality_filter: bool = False
+    eval_split: float = 0.0  # 0.0 = no eval split; 0.1 = 10% held out
 
     # ── LoRA / PEFT ────────────────────────────────────────────────────
     lora_r: int = 16
@@ -73,6 +75,7 @@ class TrainingConfig:
     save_steps: int = 100
     save_strategy: str = "steps"
     save_total_limit: int = 3
+    report_to: str = "none"  # "none", "wandb", "tensorboard"
 
     # ── Hub / publishing ───────────────────────────────────────────────
     hf_token: Optional[str] = None
@@ -83,6 +86,12 @@ class TrainingConfig:
     export_gguf: bool = False
     export_mlx: bool = False
     export_output_dir: str = "./lfm-exports"
+
+    # ── Benchmarking ──────────────────────────────────────────────────
+    run_benchmark: bool = False
+    benchmark_before_after: bool = False  # Run on base model too for comparison
+    benchmark_max_problems: Optional[int] = None  # Cap problems for quick testing
+    generate_model_card: bool = True
 
     # ── Debug ──────────────────────────────────────────────────────────
     simulate_error: bool = False
