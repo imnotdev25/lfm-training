@@ -74,8 +74,17 @@ def run_training(cfg: TrainingConfig) -> None:
         model.resize_token_embeddings(len(tokenizer))
         logger.info("Resized model embeddings to %d", len(tokenizer))
 
-    # ── 2. LoRA adapters ──────────────────────────────────────────────
-    if cfg.resume_from_model:
+    # ── 2. LoRA / Full fine-tuning ───────────────────────────────────
+    if not cfg.use_lora:
+        # Full fine-tuning — all parameters trainable
+        logger.info("🔓 Full fine-tuning mode — all parameters trainable")
+        model.enable_input_require_grads()
+        # Enable gradient checkpointing for memory savings
+        model.gradient_checkpointing_enable()
+        trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        total = sum(p.numel() for p in model.parameters())
+        logger.info("Trainable params: %s / %s (%.1f%%)", f"{trainable:,}", f"{total:,}", 100 * trainable / total)
+    elif cfg.resume_from_model:
         # Continual training: load a previously trained adapter
         logger.info("Resuming from prior adapter: %s", cfg.resume_from_model)
         model = PeftModel.from_pretrained(
@@ -84,12 +93,13 @@ def run_training(cfg: TrainingConfig) -> None:
             is_trainable=True,
         )
         logger.info("Loaded existing adapter — continuing training")
+        model.print_trainable_parameters()
     else:
         # Fresh LoRA
         logger.info("Applying fresh LoRA (r=%d, alpha=%d)", cfg.lora_r, cfg.lora_alpha)
         lora_config = _build_lora_config(cfg)
         model = get_peft_model(model, lora_config)
-    model.print_trainable_parameters()
+        model.print_trainable_parameters()
 
     # ── 3. Dataset ────────────────────────────────────────────────────
     logger.info("Loading datasets: %s", cfg.dataset_paths)
@@ -173,6 +183,7 @@ def run_training(cfg: TrainingConfig) -> None:
                 model_before=base_model_clean,
                 model_after=model,
                 tokenizer=tokenizer,
+                benchmarks=cfg.benchmark_names,
                 max_problems=cfg.benchmark_max_problems,
             )
             del base_model_clean
@@ -181,6 +192,7 @@ def run_training(cfg: TrainingConfig) -> None:
             benchmark_results = run_benchmarks(
                 model=model,
                 tokenizer=tokenizer,
+                benchmarks=cfg.benchmark_names,
                 max_problems=cfg.benchmark_max_problems,
             )
 
@@ -202,11 +214,17 @@ def run_training(cfg: TrainingConfig) -> None:
         version_tag = _version_tag()
         logger.info("Starting post-training export (version: %s)", version_tag)
 
-        # Merge LoRA into base model and save locally for export
+        # Prepare model for export
         merged_dir = f"{cfg.output_dir}/merged-for-export"
-        logger.info("Merging LoRA adapters into base model → %s", merged_dir)
-        merged_model = model.merge_and_unload()
-        merged_model.save_pretrained(merged_dir)
+        if cfg.use_lora:
+            # Merge LoRA into base model
+            logger.info("Merging LoRA adapters into base model → %s", merged_dir)
+            merged_model = model.merge_and_unload()
+            merged_model.save_pretrained(merged_dir)
+        else:
+            # Full fine-tune — model is already complete
+            logger.info("Saving full fine-tuned model → %s", merged_dir)
+            model.save_pretrained(merged_dir)
         tokenizer.save_pretrained(merged_dir)
 
         run_exports(

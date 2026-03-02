@@ -110,7 +110,12 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--warmup-ratio", type=float, default=0.03)
     p.add_argument("--max-seq-length", type=int, default=2048)
 
-    # ── LoRA ───────────────────────────────────────────────────────────
+    # ── LoRA / Full fine-tuning ─────────────────────────────────────────
+    p.add_argument(
+        "--full-finetune",
+        action="store_true",
+        help="Train all model parameters (no LoRA). Needs more VRAM but gives best results.",
+    )
     p.add_argument("--lora-r", type=int, default=16)
     p.add_argument("--lora-alpha", type=int, default=32)
     p.add_argument("--lora-dropout", type=float, default=0.05)
@@ -169,6 +174,15 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Cap the number of benchmark problems (for quick testing).",
     )
+    p.add_argument(
+        "--benchmarks",
+        nargs="+",
+        default=None,
+        help=(
+            "Which benchmarks to run (default: humaneval mbpp). "
+            "Options: humaneval, mbpp, multiple, bigcodebench, evalplus, all."
+        ),
+    )
 
     # ── Logging / reporting ───────────────────────────────────────────
     p.add_argument(
@@ -220,6 +234,7 @@ def main(argv: list[str] | None = None) -> None:
         learning_rate=args.lr,
         warmup_ratio=args.warmup_ratio,
         max_seq_length=args.max_seq_length,
+        use_lora=not args.full_finetune,
         lora_r=args.lora_r,
         lora_alpha=args.lora_alpha,
         lora_dropout=args.lora_dropout,
@@ -235,6 +250,11 @@ def main(argv: list[str] | None = None) -> None:
         run_benchmark=args.benchmark,
         benchmark_before_after=args.benchmark_compare,
         benchmark_max_problems=args.benchmark_max,
+        benchmark_names=(
+            ["humaneval", "mbpp", "multiple", "bigcodebench", "evalplus"]
+            if args.benchmarks and "all" in args.benchmarks
+            else args.benchmarks
+        ),
         generate_model_card=not args.no_model_card,
         simulate_error=args.simulate_error,
     )

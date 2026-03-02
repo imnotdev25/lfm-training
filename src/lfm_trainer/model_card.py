@@ -150,15 +150,70 @@ def save_model_card(
     benchmark_results=None,
     training_time_seconds: float | None = None,
 ) -> str:
-    """Generate and save a model card to the output directory.
+    """Generate, save locally, and upload model card to HuggingFace Hub.
 
     Returns the path to the saved README.md.
     """
-    card = generate_model_card(cfg, benchmark_results, training_time_seconds)
-    path = f"{output_dir}/README.md"
+    import os
 
+    card = generate_model_card(cfg, benchmark_results, training_time_seconds)
+
+    # Save locally
+    os.makedirs(output_dir, exist_ok=True)
+    path = f"{output_dir}/README.md"
     with open(path, "w") as f:
         f.write(card)
-
     logger.info("📄 Model card saved to %s", path)
+
+    # Auto-upload to HuggingFace Hub
+    if cfg.push_to_hub and cfg.hub_repo_id:
+        try:
+            from huggingface_hub import HfApi
+
+            api = HfApi(token=cfg.hf_token)
+            api.upload_file(
+                path_or_fileobj=path,
+                path_in_repo="README.md",
+                repo_id=cfg.hub_repo_id,
+                commit_message="Auto-update model card with benchmark results",
+            )
+            logger.info("✅ Model card uploaded to https://huggingface.co/%s", cfg.hub_repo_id)
+        except Exception as e:
+            logger.warning("⚠️  Failed to upload model card to Hub: %s", e)
+
+    # Also save benchmark results as JSON for programmatic access
+    if benchmark_results:
+        import json
+
+        results_path = f"{output_dir}/benchmark_results.json"
+        results_data = []
+        for item in benchmark_results:
+            if hasattr(item, "before"):  # BenchmarkComparison
+                results_data.append({
+                    "benchmark": item.before.benchmark,
+                    "before": item.before.to_dict(),
+                    "after": item.after.to_dict(),
+                    "delta_pass_at_1": round(item.delta_pass_at_1 * 100, 2),
+                })
+            else:
+                results_data.append(item.to_dict())
+
+        with open(results_path, "w") as f:
+            json.dump(results_data, f, indent=2)
+        logger.info("📊 Benchmark results saved to %s", results_path)
+
+        # Upload benchmark JSON too
+        if cfg.push_to_hub and cfg.hub_repo_id:
+            try:
+                api = HfApi(token=cfg.hf_token)
+                api.upload_file(
+                    path_or_fileobj=results_path,
+                    path_in_repo="benchmark_results.json",
+                    repo_id=cfg.hub_repo_id,
+                    commit_message="Add benchmark results JSON",
+                )
+            except Exception:
+                pass
+
     return path
+

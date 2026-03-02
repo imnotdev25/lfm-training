@@ -14,6 +14,12 @@ Fine-tune **Liquid LFM 2.5 1.2B** for coding tasks on Kaggle multi-GPU — with 
 - 📐 **GGUF export** — Q4_K_M, Q6_K, Q8_0 via llama.cpp
 - 🍎 **MLX export** — 4-bit, 6-bit, 8-bit via [mlx-lm](https://github.com/ml-explore/mlx-lm)
 - 🏷️ **Shared versioning** — base model + all quantized variants tagged with the same version
+- 🔓 **Full fine-tuning** — train all parameters (no LoRA) for maximum quality
+- 📊 **Auto-benchmarking** — HumanEval + MBPP + MultiPL-E + BigCodeBench + EvalPlus
+- 🧹 **Data quality filters** — auto-remove duplicates, empty rows, and length outliers
+- 📈 **Eval split** — hold out a % for validation loss tracking during training
+- 📝 **Auto model card** — generates a HuggingFace README.md with config, benchmarks, and hardware
+- 📉 **W&B / TensorBoard** — optional training metric logging
 
 ## Installation
 
@@ -66,8 +72,11 @@ cfg = TrainingConfig(
     model_name="liquid/LFM2.5-1.2B-Base",
     dataset_paths=["peteromallet/dataclaw-peteromallet"],
     hub_repo_id="your-username/lfm-code",
+    quality_filter=True,
+    eval_split=0.1,
+    run_benchmark=True,
+    benchmark_before_after=True,
     export_gguf=True,
-    export_mlx=True,   # Requires Apple Silicon
 )
 run_training(cfg)
 ```
@@ -84,6 +93,8 @@ lfm-train --help
 | `--model` | `liquid/LFM2.5-1.2B-Base` | Model to fine-tune |
 | `--resume-from` | — | Path or Hub ID of a prior adapter for continual training |
 | `--tool-calling-only` | off | Keep only samples with tool calls |
+| `--quality-filter` | off | Remove empty rows, dupes, length outliers |
+| `--eval-split` | 0.0 | Hold out a fraction for eval (e.g. 0.1 = 10%) |
 | `--hf-token` | *auto-detect* | HuggingFace token |
 | `--hub-repo` | auto | Hub repo to push to |
 | `--no-push` | off | Save locally only, skip Hub push |
@@ -94,6 +105,12 @@ lfm-train --help
 | `--lora-r` | 16 | LoRA rank |
 | `--lora-alpha` | 32 | LoRA alpha |
 | `--bf16` | off | Use bfloat16 |
+| `--full-finetune` | off | Train all params (no LoRA), needs more VRAM |
+| `--report-to` | `none` | `none`, `wandb`, or `tensorboard` |
+| `--benchmark` | off | Run HumanEval + MBPP after training |
+| `--benchmark-compare` | off | Also benchmark base model for delta |
+| `--benchmark-max` | all | Cap problems for quick testing |
+| `--no-model-card` | off | Skip auto model card generation |
 | `--export-gguf` | off | Export GGUF (Q4_K_M, Q6_K, Q8_0) |
 | `--export-mlx` | off | Export MLX (4/6/8-bit) |
 | `--export-dir` | `./lfm-exports` | Export scratch directory |
@@ -183,6 +200,10 @@ See the [`examples/`](examples/) directory for ready-to-run scripts:
 | [`tool_calling_training.py`](examples/tool_calling_training.py) | Tool-calling-only with playwright MCP |
 | [`multi_dataset_training.py`](examples/multi_dataset_training.py) | Combining Hub + local + DataFrame sources |
 | [`continual_training.py`](examples/continual_training.py) | Multi-round training with local saves |
+| [`benchmark_training.py`](examples/benchmark_training.py) | Train + HumanEval/MBPP benchmark + auto-upload |
+| [`full_benchmark_suite.py`](examples/full_benchmark_suite.py) | All 5 benchmarks with before/after comparison |
+| [`benchmark_only.py`](examples/benchmark_only.py) | Evaluate any model without training |
+| [`full_finetune.py`](examples/full_finetune.py) | Full parameter training (no LoRA) |
 | [`export_only.py`](examples/export_only.py) | Standalone GGUF/MLX quantization |
 | [`kaggle_notebook.py`](examples/kaggle_notebook.py) | Copy-paste Kaggle cells |
 

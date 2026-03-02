@@ -54,6 +54,7 @@ class TrainingConfig:
     eval_split: float = 0.0  # 0.0 = no eval split; 0.1 = 10% held out
 
     # ── LoRA / PEFT ────────────────────────────────────────────────────
+    use_lora: bool = True  # False = full fine-tuning (all parameters)
     lora_r: int = 16
     lora_alpha: int = 32
     lora_dropout: float = 0.05
@@ -91,6 +92,7 @@ class TrainingConfig:
     run_benchmark: bool = False
     benchmark_before_after: bool = False  # Run on base model too for comparison
     benchmark_max_problems: Optional[int] = None  # Cap problems for quick testing
+    benchmark_names: Optional[list[str]] = None  # None = ["humaneval", "mbpp"]; pass ["all"] for all
     generate_model_card: bool = True
 
     # ── Debug ──────────────────────────────────────────────────────────
