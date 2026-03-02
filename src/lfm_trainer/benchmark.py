@@ -14,13 +14,9 @@ and publishes results to the HuggingFace model card.
 
 from __future__ import annotations
 
-import json
 import logging
-import os
 import subprocess
-import tempfile
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Optional
 
 import torch

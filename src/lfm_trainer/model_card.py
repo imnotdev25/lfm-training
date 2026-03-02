@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import platform
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from lfm_trainer.benchmark import BenchmarkComparison, BenchmarkResult
@@ -48,7 +48,7 @@ def generate_model_card(
         f"base_model: {cfg.model_name}",
         f"tags: {tags}",
         "library_name: peft",
-        f"license: mit",
+        "license: mit",
         "---",
         "",
         f"# {repo}",

@@ -8,11 +8,8 @@ to HuggingFace Hub with the same version tag as the base model.
 from __future__ import annotations
 
 import logging
-import os
-import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Optional
 

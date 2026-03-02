@@ -29,7 +29,6 @@ Usage on Kaggle:
 """
 
 from lfm_trainer.config import TrainingConfig
-from lfm_trainer.trainer import run_training
 
 # ── Round 1: Base coding fine-tune (local only) ──────────────────────────
 cfg_round1 = TrainingConfig(

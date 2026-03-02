@@ -36,6 +36,33 @@ def _resolve_hf_token(cli_token: Optional[str] = None) -> Optional[str]:
     return None
 
 
+def _resolve_wandb_key(cli_key: Optional[str] = None) -> Optional[str]:
+    """Resolve the Weights & Biases API key with the following priority:
+    1. Explicit CLI argument
+    2. WANDB_API_KEY environment variable
+    3. Kaggle Secrets (kaggle_secrets.UserSecretsClient)
+    """
+    if cli_key:
+        return cli_key
+
+    env_key = os.environ.get("WANDB_API_KEY")
+    if env_key:
+        return env_key
+
+    # Attempt Kaggle secrets
+    try:
+        from kaggle_secrets import UserSecretsClient  # type: ignore[import-untyped]
+
+        user_secrets = UserSecretsClient()
+        kaggle_key = user_secrets.get_secret("WANDB_API_KEY")
+        if kaggle_key:
+            return kaggle_key
+    except (ImportError, Exception):
+        pass
+
+    return None
+
+
 @dataclass
 class TrainingConfig:
     """All knobs for a single training run."""
@@ -77,6 +104,8 @@ class TrainingConfig:
     save_strategy: str = "steps"
     save_total_limit: int = 3
     report_to: str = "none"  # "none", "wandb", "tensorboard"
+    wandb_api_key: Optional[str] = None
+    wandb_project: str = "lfm-trainer"
 
     # ── Hub / publishing ───────────────────────────────────────────────
     hf_token: Optional[str] = None
@@ -100,3 +129,15 @@ class TrainingConfig:
 
     def __post_init__(self) -> None:
         self.hf_token = _resolve_hf_token(self.hf_token)
+
+        # Auto-resolve and login W&B if needed
+        if self.report_to == "wandb":
+            self.wandb_api_key = _resolve_wandb_key(self.wandb_api_key)
+            if self.wandb_api_key:
+                os.environ["WANDB_API_KEY"] = self.wandb_api_key
+                os.environ.setdefault("WANDB_PROJECT", self.wandb_project)
+                try:
+                    import wandb
+                    wandb.login(key=self.wandb_api_key, relogin=True)
+                except ImportError:
+                    pass

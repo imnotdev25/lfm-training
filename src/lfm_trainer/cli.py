@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import argparse
 import logging
-import sys
 
 from lfm_trainer.config import TrainingConfig
 from lfm_trainer.trainer import run_training
@@ -192,6 +191,16 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Where to log training metrics (default: none).",
     )
     p.add_argument(
+        "--wandb-key",
+        default=None,
+        help="W&B API key (auto-detected from WANDB_API_KEY env or Kaggle Secrets).",
+    )
+    p.add_argument(
+        "--wandb-project",
+        default="lfm-trainer",
+        help="W&B project name (default: lfm-trainer).",
+    )
+    p.add_argument(
         "--no-model-card",
         action="store_true",
         help="Skip auto-generating a HuggingFace model card.",
@@ -243,6 +252,8 @@ def main(argv: list[str] | None = None) -> None:
         fp16=not args.bf16,
         bf16=args.bf16,
         report_to=args.report_to,
+        wandb_api_key=args.wandb_key,
+        wandb_project=args.wandb_project,
         export_gguf=args.export_gguf,
         export_mlx=args.export_mlx,
         export_output_dir=args.export_dir,

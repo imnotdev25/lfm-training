@@ -9,10 +9,8 @@ Usage on Kaggle:
     !python examples/multi_dataset_training.py
 """
 
-import pandas as pd
 
 from lfm_trainer.config import TrainingConfig
-from lfm_trainer.data import load_datasets
 from lfm_trainer.trainer import run_training
 
 # ── Option A: Use the CLI-style config ────────────────────────────────────

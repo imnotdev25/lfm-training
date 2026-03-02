@@ -13,7 +13,6 @@ import logging
 import signal
 import sys
 from datetime import datetime, timezone
-from functools import partial
 from typing import TYPE_CHECKING, Optional
 
 import torch
