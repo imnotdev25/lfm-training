@@ -206,11 +206,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip auto-generating a HuggingFace model card.",
     )
 
-    # ── DPO / Preference Alignment ────────────────────────────────────
+    # ── Alignment (DPO / PPO / GRPO) ────────────────────────────────────
     p.add_argument(
-        "--dpo-dataset",
+        "--alignment-method",
+        choices=["dpo", "ppo", "grpo"],
+        default="dpo",
+        help="Alignment method: dpo, ppo, or grpo (default: dpo).",
+    )
+    p.add_argument(
+        "--alignment-dataset",
         default=None,
-        help="HF dataset for DPO alignment (must have prompt/chosen/rejected columns).",
+        help="HF dataset for alignment stage (DPO: prompt/chosen/rejected; PPO/GRPO: prompts).",
     )
     p.add_argument(
         "--dpo-beta",
@@ -218,7 +224,32 @@ def _build_parser() -> argparse.ArgumentParser:
         default=0.1,
         help="DPO β parameter — higher is more conservative (default: 0.1).",
     )
+    p.add_argument(
+        "--reward-model",
+        default=None,
+        help="HF reward model for PPO (e.g., OpenAssistant/reward-model-deberta-v3-large).",
+    )
+    p.add_argument(
+        "--grpo-generations",
+        type=int,
+        default=4,
+        help="Number of completions per prompt for GRPO (default: 4).",
+    )
 
+    # ── Continued Pre-Training (CPT) ──────────────────────────────────
+    p.add_argument(
+        "--cpt-sources",
+        nargs="+",
+        default=None,
+        metavar="PATH",
+        help="Raw text sources for CPT: file paths, directories, or HF dataset IDs.",
+    )
+    p.add_argument(
+        "--cpt-chunk-size",
+        type=int,
+        default=2048,
+        help="Characters per chunk for CPT (default: 2048).",
+    )
     # ── Auto HP Search ────────────────────────────────────────────────
     p.add_argument(
         "--auto-hp-search",
@@ -307,8 +338,13 @@ def main(argv: list[str] | None = None) -> None:
             else args.benchmarks
         ),
         generate_model_card=not args.no_model_card,
-        dpo_dataset=args.dpo_dataset,
+        alignment_method=args.alignment_method,
+        alignment_dataset=args.alignment_dataset,
         dpo_beta=args.dpo_beta,
+        reward_model=args.reward_model,
+        grpo_num_generations=args.grpo_generations,
+        cpt_sources=args.cpt_sources,
+        cpt_chunk_size=args.cpt_chunk_size,
         auto_hp_search=args.auto_hp_search,
         hp_search_trials_steps=args.hp_trial_steps,
         simulate_error=args.simulate_error,

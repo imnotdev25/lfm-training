@@ -124,13 +124,32 @@ class TrainingConfig:
     benchmark_names: Optional[list[str]] = None  # None = ["humaneval", "mbpp"]; pass ["all"] for all
     generate_model_card: bool = True
 
-    # ── DPO / Preference Alignment ────────────────────────────────────
-    dpo_dataset: Optional[str] = None       # HF dataset with prompt/chosen/rejected
+    # ── Alignment (DPO / PPO / GRPO) ────────────────────────────────────
+    alignment_method: str = "dpo"           # "dpo", "ppo", or "grpo"
+    alignment_dataset: Optional[str] = None # HF dataset for alignment stage
+    alignment_epochs: int = 1
+    alignment_learning_rate: float = 5e-5
+    alignment_batch_size: int = 2
+    alignment_max_steps: int = 500          # Max steps for PPO loop
+    alignment_max_new_tokens: int = 256     # Max tokens to generate during PPO/GRPO
+    alignment_sft_model: Optional[str] = None  # Override path to SFT model
+
+    # DPO-specific
     dpo_beta: float = 0.1                   # DPO β — higher = more conservative
-    dpo_epochs: int = 1
-    dpo_learning_rate: float = 5e-5
-    dpo_batch_size: int = 2
-    dpo_sft_model: Optional[str] = None     # Override path to SFT adapter for DPO
+
+    # PPO-specific
+    reward_model: Optional[str] = None      # HF reward model for PPO
+    ppo_ppo_epochs: int = 4                 # PPO inner epochs per batch
+
+    # GRPO-specific
+    grpo_num_generations: int = 4           # Completions per prompt for GRPO
+
+    # ── Continued Pre-Training (CPT) ──────────────────────────────────
+    cpt_sources: Optional[list[str]] = None # Raw text file paths, dirs, or HF datasets
+    cpt_chunk_size: int = 2048              # Characters per chunk
+    cpt_chunk_overlap: int = 128            # Overlap between chunks
+    cpt_epochs: int = 2                     # CPT training epochs
+    cpt_learning_rate: float = 5e-5         # Lower than SFT
 
     # ── Auto Hyperparameter Search ────────────────────────────────────
     auto_hp_search: bool = False

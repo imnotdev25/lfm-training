@@ -40,6 +40,14 @@ def run_training(cfg: TrainingConfig) -> None:
     5. Train with error-resilient wrapper
     6. Export GGUF / MLX quantized versions (if enabled)
     """
+    # ── CPT mode (Continued Pre-Training on raw text) ─────────────────
+    if cfg.cpt_sources:
+        from lfm_trainer.cpt import run_cpt
+
+        logger.info("CPT mode: training on raw text sources")
+        run_cpt(cfg)
+        return
+
     # ── 0. Auto HP Search (optional) ──────────────────────────────────
     if cfg.auto_hp_search:
         from lfm_trainer.hp_search import auto_hp_search
@@ -218,12 +226,12 @@ def run_training(cfg: TrainingConfig) -> None:
             training_time_seconds=training_time,
         )
 
-    # ── 8. DPO alignment (optional) ────────────────────────────────────
-    if cfg.dpo_dataset:
-        from lfm_trainer.dpo import run_dpo
+    # ── 8. Alignment stage (DPO / PPO / GRPO) ───────────────────────────
+    if cfg.alignment_dataset:
+        from lfm_trainer.dpo import run_alignment
 
-        logger.info("Starting DPO alignment stage…")
-        run_dpo(cfg, model=model, tokenizer=tokenizer)
+        logger.info("Starting %s alignment stage…", cfg.alignment_method.upper())
+        run_alignment(cfg, model=model, tokenizer=tokenizer)
 
     # ── 9. Post-training export (GGUF / MLX) ──────────────────────────
     if cfg.export_gguf or cfg.export_mlx:

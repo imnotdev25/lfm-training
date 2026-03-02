@@ -20,7 +20,8 @@ Fine-tune **Liquid LFM 2.5 1.2B** for coding tasks on Kaggle multi-GPU — with 
 - 📈 **Eval split** — hold out a % for validation loss tracking during training
 - 📝 **Auto model card** — generates a HuggingFace README.md with config, benchmarks, and hardware
 - 📉 **W&B / TensorBoard** — optional training metric logging
-- 🎯 **DPO alignment** — preference tuning after SFT via TRL's DPOTrainer
+- 🎯 **DPO / PPO / GRPO alignment** — preference tuning after SFT via DPO, classic RLHF (PPO), or DeepSeek-style GRPO
+- 📚 **Continued Pre-Training (CPT)** — train on raw text (books, PDFs, code) to inject domain knowledge
 - 🔗 **LoRA adapter merging** — combine multiple adapters into a single model with weighted blending
 - 🔍 **Auto HP search** — try multiple learning rates and pick the best based on eval loss
 
@@ -117,8 +118,13 @@ lfm-train --help
 | `--export-gguf` | off | Export GGUF (Q4_K_M, Q6_K, Q8_0) |
 | `--export-mlx` | off | Export MLX (4/6/8-bit) |
 | `--export-dir` | `./lfm-exports` | Export scratch directory |
-| `--dpo-dataset` | *none* | HF dataset for DPO alignment (prompt/chosen/rejected) |
+| `--alignment-method` | `dpo` | Alignment method: dpo, ppo, or grpo |
+| `--alignment-dataset` | *none* | HF dataset for alignment (DPO: chosen/rejected; PPO/GRPO: prompts) |
 | `--dpo-beta` | 0.1 | DPO β — higher = more conservative |
+| `--reward-model` | *none* | HF reward model for PPO |
+| `--grpo-generations` | 4 | Completions per prompt for GRPO |
+| `--cpt-sources` | *none* | Raw text sources for CPT (files, dirs, HF datasets) |
+| `--cpt-chunk-size` | 2048 | Characters per chunk for CPT |
 | `--auto-hp-search` | off | Run auto hyperparameter search before training |
 | `--hp-trial-steps` | 50 | Steps per HP search trial |
 | `--merge-adapters` | *none* | Merge multiple LoRA adapters (skip training) |
@@ -216,7 +222,8 @@ See the [`examples/`](examples/) directory for ready-to-run scripts:
 | [`wandb_training.py`](examples/wandb_training.py) | W&B logging with auto API key detection |
 | [`export_only.py`](examples/export_only.py) | Standalone GGUF/MLX quantization |
 | [`kaggle_notebook.py`](examples/kaggle_notebook.py) | Copy-paste Kaggle cells |
-| [`dpo_alignment.py`](examples/dpo_alignment.py) | SFT → DPO preference alignment pipeline |
+| [`cpt_raw_text.py`](examples/cpt_raw_text.py) | Train on books, PDFs, or raw text (CPT) |
+| [`dpo_alignment.py`](examples/dpo_alignment.py) | DPO / PPO / GRPO alignment after SFT |
 | [`merge_adapters.py`](examples/merge_adapters.py) | Merge multiple LoRA adapters (with weights) |
 | [`auto_hp_search.py`](examples/auto_hp_search.py) | Auto learning rate search before training |
 
@@ -235,6 +242,8 @@ New to LLM fine-tuning? Start here — no prerequisites beyond basic Python:
 | 7 | [Evaluation & Benchmarks](docs/07-evaluation-and-benchmarks.md) | HumanEval, MBPP, pass@k metric |
 | 8 | [Quantization & Export](docs/08-quantization-and-export.md) | GGUF, MLX, INT4/INT8 |
 | 9 | [Architecture Deep-Dive](docs/09-architecture-deep-dive.md) | How lfm-trainer is built |
+| 10 | [DPO, PPO, GRPO & Alignment](docs/10-dpo-and-alignment.md) | DPO/PPO/GRPO math, datasets, pipeline |
+| 11 | [Continued Pre-Training (CPT)](docs/11-continued-pretraining.md) | Train on books, raw text, domain knowledge |
 
 ## License
 

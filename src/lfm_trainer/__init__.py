@@ -6,6 +6,7 @@ from lfm_trainer.trainer import run_training  # noqa: F401
 from lfm_trainer.data import load_datasets  # noqa: F401
 from lfm_trainer.export import run_exports  # noqa: F401
 from lfm_trainer.benchmark import run_benchmarks  # noqa: F401
-from lfm_trainer.dpo import run_dpo  # noqa: F401
+from lfm_trainer.dpo import run_alignment, run_dpo, run_ppo, run_grpo  # noqa: F401
 from lfm_trainer.merge import merge_adapters  # noqa: F401
 from lfm_trainer.hp_search import auto_hp_search  # noqa: F401
+from lfm_trainer.cpt import run_cpt, load_raw_texts  # noqa: F401
