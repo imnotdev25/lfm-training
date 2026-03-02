@@ -34,6 +34,7 @@ AVAILABLE_BENCHMARKS = [
     "toolcall",    # Tool / function calling accuracy
     "gsm8k",       # Grade school math (reasoning)
     "reasoning",   # ARC-Challenge (science reasoning)
+    "json_output", # Structured JSON output validity
 ]
 
 DEFAULT_BENCHMARKS = ["humaneval", "mbpp"]
@@ -753,6 +754,114 @@ def _run_reasoning(
     )
 
 
+
+def _run_json_output(
+    model,
+    tokenizer,
+    n_samples: int = 1,
+    max_problems: Optional[int] = None,
+) -> BenchmarkResult:
+    """Benchmark structured JSON output quality.
+
+    Tests the model's ability to:
+    1. Generate valid JSON
+    2. Conform to a given JSON schema
+    3. Include all required fields
+    """
+    import json
+    from lfm_trainer.structured_output import (
+        BUILTIN_SCHEMAS,
+        validate_json,
+        validate_against_schema,
+    )
+
+    total = 0
+    correct = 0
+    valid_json_count = 0
+
+    schemas = BUILTIN_SCHEMAS[:max_problems] if max_problems else BUILTIN_SCHEMAS
+
+    # Test prompts for each schema
+    test_prompts = {
+        "person": [
+            "Extract info: John Doe, age 30, john@email.com, skills: Python, SQL",
+            "Parse: Jane Smith, 25 years old, jane@dev.io, expert in React and TypeScript",
+        ],
+        "api_response": [
+            "Format API response: User created successfully with ID 789",
+            "Format API response: Permission denied, invalid token",
+        ],
+        "task_list": [
+            "Create task list for 'Release v2.0': deploy to staging (high), update changelog (medium)",
+        ],
+        "function_call": [
+            "Call a function to search for 'best coffee shops in Seattle'",
+            "I need to check the current stock price of AAPL",
+        ],
+        "code_review": [
+            "Review: password = request.GET['password']",
+        ],
+        "search_results": [
+            "Search for 'kubernetes deployment strategies'",
+        ],
+    }
+
+    for schema_def in schemas:
+        name = schema_def["name"]
+        schema = schema_def["schema"]
+        schema_str = json.dumps(schema, indent=2)
+
+        prompts = test_prompts.get(name, [f"Generate output matching the {name} schema"])
+
+        for prompt_text in prompts:
+            full_prompt = (
+                f"You are a helpful assistant that responds ONLY with valid JSON.\n"
+                f"Your response must conform to this schema:\n```json\n{schema_str}\n```\n\n"
+                f"User: {prompt_text}\nAssistant:"
+            )
+
+            inputs = tokenizer(full_prompt, return_tensors="pt", truncation=True, max_length=1024)
+            inputs = {k: v.to(model.device) for k, v in inputs.items()}
+
+            with torch.no_grad():
+                output_ids = model.generate(
+                    **inputs,
+                    max_new_tokens=512,
+                    temperature=0.1,
+                    do_sample=False,
+                    pad_token_id=tokenizer.pad_token_id,
+                )
+
+            generated = tokenizer.decode(output_ids[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+
+            total += 1
+
+            # Check 1: Valid JSON?
+            is_valid, _, err = validate_json(generated)
+            if is_valid:
+                valid_json_count += 1
+
+            # Check 2: Matches schema?
+            schema_valid, errors = validate_against_schema(generated, schema)
+            if schema_valid:
+                correct += 1
+
+    pass_at_1 = correct / total if total > 0 else 0.0
+    json_rate = valid_json_count / total if total > 0 else 0.0
+    logger.info(
+        "JSON Output: %d/%d schema-valid (%.1f%%), %d/%d valid JSON (%.1f%%)",
+        correct, total, pass_at_1 * 100,
+        valid_json_count, total, json_rate * 100,
+    )
+
+    return BenchmarkResult(
+        benchmark="JSON Output (Structured)",
+        pass_at_1=pass_at_1,
+        num_problems=total,
+        num_correct=correct,
+    )
+
+
 # ── Public API ────────────────────────────────────────────────────────────
 
 _RUNNERS = {
@@ -764,6 +873,7 @@ _RUNNERS = {
     "toolcall": _run_toolcall,
     "gsm8k": _run_gsm8k,
     "reasoning": _run_reasoning,
+    "json_output": _run_json_output,
 }
 
 

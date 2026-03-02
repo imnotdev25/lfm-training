@@ -18,6 +18,9 @@ No prerequisites beyond basic Python and high-school math.
 | 9 | [Architecture Deep-Dive](09-architecture-deep-dive.md) | How lfm-trainer is built — every module explained |
 | 10 | [DPO, PPO, GRPO & Alignment](10-dpo-and-alignment.md) | DPO/PPO/GRPO math, datasets, SFT→alignment pipeline |
 | 11 | [Continued Pre-Training (CPT)](11-continued-pretraining.md) | Train on books, raw text, inject domain knowledge |
+| 12 | [Reasoning & Thinking](12-reasoning-and-thinking.md) | `<think>` tags, TxT360, tool calling, model recipes |
+| 13 | [DeepSpeed & Distillation](13-deepspeed-and-distillation.md) | ZeRO-2/3, knowledge distillation, teacher→student |
+| 14 | [Structured Output](14-structured-output.md) | JSON-mode training, schema validation, benchmarks |
 
 ## Quick Start
 

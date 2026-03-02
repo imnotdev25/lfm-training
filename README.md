@@ -15,7 +15,8 @@ Fine-tune **Liquid LFM 2.5 1.2B** for coding tasks on Kaggle multi-GPU — with 
 - 🍎 **MLX export** — 4-bit, 6-bit, 8-bit via [mlx-lm](https://github.com/ml-explore/mlx-lm)
 - 🏷️ **Shared versioning** — base model + all quantized variants tagged with the same version
 - 🔓 **Full fine-tuning** — train all parameters (no LoRA) for maximum quality
-- 📊 **Auto-benchmarking** — HumanEval + MBPP + MultiPL-E + BigCodeBench + EvalPlus
+- 📊 **Auto-benchmarking** — HumanEval, MBPP, MultiPL-E, BigCodeBench, EvalPlus, Tool Calling, GSM8K, ARC
+- 🧠 **Reasoning (`<think>` tags)** — train models that think before acting, with `<think>...</think>` traces
 - 🧹 **Data quality filters** — auto-remove duplicates, empty rows, and length outliers
 - 📈 **Eval split** — hold out a % for validation loss tracking during training
 - 📝 **Auto model card** — generates a HuggingFace README.md with config, benchmarks, and hardware
@@ -24,6 +25,9 @@ Fine-tune **Liquid LFM 2.5 1.2B** for coding tasks on Kaggle multi-GPU — with 
 - 📚 **Continued Pre-Training (CPT)** — train on raw text (books, PDFs, code) to inject domain knowledge
 - 🔗 **LoRA adapter merging** — combine multiple adapters into a single model with weighted blending
 - 🔍 **Auto HP search** — try multiple learning rates and pick the best based on eval loss
+- ⚡ **DeepSpeed ZeRO** — ZeRO-2 and ZeRO-3 for multi-GPU training (optimizer + gradient + weight sharding)
+- 🎯 **Model Distillation** — compress a large teacher into a smaller student via KL-divergence
+- 📋 **Structured Output** — train models to generate valid JSON conforming to schemas
 
 ## Installation
 
@@ -125,8 +129,16 @@ lfm-train --help
 | `--grpo-generations` | 4 | Completions per prompt for GRPO |
 | `--cpt-sources` | *none* | Raw text sources for CPT (files, dirs, HF datasets) |
 | `--cpt-chunk-size` | 2048 | Characters per chunk for CPT |
+| `--enable-reasoning` | off | Enable `<think>` reasoning tags in training data |
+| `--reasoning-dataset` | *none* | HF dataset for reasoning (e.g., LLM360/TxT360-3efforts) |
+| `--reasoning-max-samples` | 100000 | Max samples from reasoning dataset |
 | `--auto-hp-search` | off | Run auto hyperparameter search before training |
 | `--hp-trial-steps` | 50 | Steps per HP search trial |
+| `--deepspeed` | *none* | DeepSpeed config: `zero2`, `zero3`, or path to JSON |
+| `--distill-teacher` | *none* | HF model ID of teacher for knowledge distillation |
+| `--distill-temperature` | 2.0 | Distillation softmax temperature |
+| `--distill-alpha` | 0.5 | Blend factor: 0=CE only, 1=KL only |
+| `--structured-output` | off | Mix in JSON schema training data for structured output |
 | `--merge-adapters` | *none* | Merge multiple LoRA adapters (skip training) |
 | `--merge-output` | `./lfm-merged` | Output dir for merged model |
 | `--simulate-error` | off | Test auto-publish mechanism |
@@ -226,6 +238,12 @@ See the [`examples/`](examples/) directory for ready-to-run scripts:
 | [`dpo_alignment.py`](examples/dpo_alignment.py) | DPO / PPO / GRPO alignment after SFT |
 | [`merge_adapters.py`](examples/merge_adapters.py) | Merge multiple LoRA adapters (with weights) |
 | [`auto_hp_search.py`](examples/auto_hp_search.py) | Auto learning rate search before training |
+| [`recipe_tool_calling.py`](examples/recipe_tool_calling.py) | 🍳 Recipe: tool calling specialist |
+| [`recipe_reasoning_tools.py`](examples/recipe_reasoning_tools.py) | 🍳 Recipe: reasoning + tool calling (TxT360) |
+| [`recipe_from_scratch.py`](examples/recipe_from_scratch.py) | 🍳 Recipe: domain expert from books/blogs |
+| [`deepspeed_training.py`](examples/deepspeed_training.py) | DeepSpeed ZeRO-2 and ZeRO-3 multi-GPU |
+| [`distillation.py`](examples/distillation.py) | Distill 7B teacher → 1.2B student |
+| [`structured_output.py`](examples/structured_output.py) | JSON schema training + validation |
 
 ## 📚 Documentation
 
@@ -244,6 +262,9 @@ New to LLM fine-tuning? Start here — no prerequisites beyond basic Python:
 | 9 | [Architecture Deep-Dive](docs/09-architecture-deep-dive.md) | How lfm-trainer is built |
 | 10 | [DPO, PPO, GRPO & Alignment](docs/10-dpo-and-alignment.md) | DPO/PPO/GRPO math, datasets, pipeline |
 | 11 | [Continued Pre-Training (CPT)](docs/11-continued-pretraining.md) | Train on books, raw text, domain knowledge |
+| 12 | [Reasoning & Thinking](docs/12-reasoning-and-thinking.md) | `<think>` tags, TxT360, model recipes, benchmarks |
+| 13 | [DeepSpeed & Distillation](docs/13-deepspeed-and-distillation.md) | ZeRO-2/3, knowledge distillation, teacher→student |
+| 14 | [Structured Output](docs/14-structured-output.md) | JSON-mode training, schema validation, benchmarks |
 
 ## License
 

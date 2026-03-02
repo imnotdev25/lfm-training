@@ -48,6 +48,14 @@ def run_training(cfg: TrainingConfig) -> None:
         run_cpt(cfg)
         return
 
+    # ── Distillation mode (teacher → student) ─────────────────────────
+    if cfg.distill_teacher:
+        from lfm_trainer.distill import run_distillation
+
+        logger.info("Distillation mode: %s → %s", cfg.distill_teacher, cfg.model_name)
+        run_distillation(cfg)
+        return
+
     # ── 0. Auto HP Search (optional) ──────────────────────────────────
     if cfg.auto_hp_search:
         from lfm_trainer.hp_search import auto_hp_search
@@ -58,6 +66,20 @@ def run_training(cfg: TrainingConfig) -> None:
             trial_steps=cfg.hp_search_trials_steps,
         )
         logger.info("Best HP: lr=%s, lora_r=%s", cfg.learning_rate, cfg.lora_r)
+
+    # ── Resolve DeepSpeed config ──────────────────────────────────────
+    ds_config = None
+    if cfg.deepspeed:
+        import os as _os
+        if cfg.deepspeed in ("zero2", "zero3"):
+            ds_config = _os.path.join(
+                _os.path.dirname(__file__),
+                "deepspeed_configs",
+                f"{cfg.deepspeed}.json",
+            )
+        else:
+            ds_config = cfg.deepspeed  # Custom path
+        logger.info("DeepSpeed enabled: %s", ds_config)
 
     # ── 1. Model & tokenizer ──────────────────────────────────────────
     logger.info("Loading model: %s", cfg.model_name)
@@ -81,12 +103,15 @@ def run_training(cfg: TrainingConfig) -> None:
         logger.info("Adding %d tool-calling special tokens: %s", len(tokens_to_add), tokens_to_add)
         tokenizer.add_special_tokens({"additional_special_tokens": tokens_to_add})
 
-    model = AutoModelForCausalLM.from_pretrained(
-        cfg.model_name,
+    # DeepSpeed manages device placement — skip device_map when DS is active
+    model_kwargs = dict(
         trust_remote_code=cfg.trust_remote_code,
         torch_dtype=torch.float16 if cfg.fp16 else (torch.bfloat16 if cfg.bf16 else torch.float32),
-        device_map="auto",
     )
+    if not ds_config:
+        model_kwargs["device_map"] = "auto"
+
+    model = AutoModelForCausalLM.from_pretrained(cfg.model_name, **model_kwargs)
 
     # Resize embeddings if new tokens were added
     if tokens_to_add:
@@ -135,6 +160,15 @@ def run_training(cfg: TrainingConfig) -> None:
     else:
         train_dataset, eval_dataset = result, None
 
+    # ── 3b. Mix in structured output data (JSON schema training) ──────
+    if cfg.structured_output:
+        from datasets import concatenate_datasets
+        from lfm_trainer.structured_output import create_structured_output_dataset
+
+        so_dataset = create_structured_output_dataset(samples_per_schema=20)
+        logger.info("Mixing in %d structured output examples", len(so_dataset))
+        train_dataset = concatenate_datasets([train_dataset, so_dataset])
+
     # ── 4. Trainer ────────────────────────────────────────────────────
     training_args = SFTConfig(
         output_dir=cfg.output_dir,
@@ -152,6 +186,7 @@ def run_training(cfg: TrainingConfig) -> None:
         save_total_limit=cfg.save_total_limit,
         max_length=cfg.max_seq_length,
         report_to=cfg.report_to,
+        deepspeed=ds_config,
     )
 
     trainer_kwargs = dict(
@@ -164,6 +199,10 @@ def run_training(cfg: TrainingConfig) -> None:
         trainer_kwargs["eval_dataset"] = eval_dataset
         training_args.eval_strategy = "steps"
         training_args.eval_steps = cfg.save_steps
+        # Guard against OOM during eval on constrained GPUs (e.g. 2×T4)
+        training_args.per_device_eval_batch_size = 1
+        training_args.eval_accumulation_steps = 4
+        training_args.dataloader_pin_memory = False
 
     trainer = SFTTrainer(**trainer_kwargs)
 

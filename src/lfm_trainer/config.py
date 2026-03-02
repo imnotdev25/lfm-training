@@ -156,9 +156,20 @@ class TrainingConfig:
     reasoning_dataset: Optional[str] = None  # HF dataset for reasoning (e.g., TxT360)
     reasoning_max_samples: int = 100_000     # Cap rows from reasoning dataset
 
+    # ── Structured Output ─────────────────────────────────────────────
+    structured_output: bool = False          # Mix in JSON schema training data
+
     # ── Auto Hyperparameter Search ────────────────────────────────────
     auto_hp_search: bool = False
     hp_search_trials_steps: int = 50        # Steps per trial
+
+    # ── DeepSpeed ─────────────────────────────────────────────────────
+    deepspeed: Optional[str] = None         # "zero2", "zero3", or path to JSON
+
+    # ── Model Distillation ────────────────────────────────────────────
+    distill_teacher: Optional[str] = None   # HF model ID for teacher (frozen)
+    distill_temperature: float = 2.0        # Softmax temperature (higher = softer)
+    distill_alpha: float = 0.5              # Blend: 0=CE only, 1=KL only
 
     # ── Debug ──────────────────────────────────────────────────────────
     simulate_error: bool = False

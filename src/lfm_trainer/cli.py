@@ -269,6 +269,13 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Max samples from reasoning dataset (default: 100000).",
     )
 
+    # ── Structured Output ────────────────────────────────────────────
+    p.add_argument(
+        "--structured-output",
+        action="store_true",
+        help="Mix in JSON schema training data for structured output.",
+    )
+
     # ── Auto HP Search ────────────────────────────────────────────────
     p.add_argument(
         "--auto-hp-search",
@@ -280,6 +287,33 @@ def _build_parser() -> argparse.ArgumentParser:
         type=int,
         default=50,
         help="Steps per HP search trial (default: 50).",
+    )
+
+    # ── DeepSpeed ────────────────────────────────────────────────────
+    p.add_argument(
+        "--deepspeed",
+        default=None,
+        metavar="STAGE",
+        help="DeepSpeed config: 'zero2', 'zero3', or path to custom JSON.",
+    )
+
+    # ── Model Distillation ───────────────────────────────────────────
+    p.add_argument(
+        "--distill-teacher",
+        default=None,
+        help="HF model ID of the teacher model for knowledge distillation.",
+    )
+    p.add_argument(
+        "--distill-temperature",
+        type=float,
+        default=2.0,
+        help="Distillation softmax temperature (default: 2.0).",
+    )
+    p.add_argument(
+        "--distill-alpha",
+        type=float,
+        default=0.5,
+        help="Blend factor: 0=CE only, 1=KL only (default: 0.5).",
     )
 
     # ── LoRA Merge ────────────────────────────────────────────────────
@@ -369,6 +403,11 @@ def main(argv: list[str] | None = None) -> None:
         reasoning_max_samples=args.reasoning_max_samples,
         auto_hp_search=args.auto_hp_search,
         hp_search_trials_steps=args.hp_trial_steps,
+        deepspeed=args.deepspeed,
+        distill_teacher=args.distill_teacher,
+        distill_temperature=args.distill_temperature,
+        distill_alpha=args.distill_alpha,
+        structured_output=args.structured_output,
         simulate_error=args.simulate_error,
     )
 
