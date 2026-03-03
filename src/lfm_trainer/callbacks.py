@@ -30,6 +30,15 @@ def _version_tag() -> str:
     return datetime.now(timezone.utc).strftime("v%Y%m%d-%H%M%S")
 
 
+def _ensure_repo(repo_id: str, token: Optional[str]) -> None:
+    """Create the Hub repo if it doesn't exist (idempotent)."""
+    try:
+        api = HfApi(token=token)
+        api.create_repo(repo_id, exist_ok=True, token=token)
+    except Exception as e:
+        logger.warning("Could not ensure repo %s exists: %s", repo_id, e)
+
+
 def _safe_push_to_hub(
     trainer: Trainer,
     model: PeftModel,
@@ -49,6 +58,9 @@ def _safe_push_to_hub(
         save_dir = f"./lfm-emergency-{tag}"
         model.save_pretrained(save_dir)
         tokenizer.save_pretrained(save_dir)
+
+        # Ensure the repo exists or reuse existing one
+        _ensure_repo(repo_id, token)
 
         # Push adapter weights
         model.push_to_hub(repo_id, token=token, commit_message=f"[auto] {reason} — {tag}")
@@ -143,6 +155,8 @@ def safe_train(
         logger.info("🎉 Training completed successfully!")
 
         if push_to_hub:
+            # Ensure the repo exists (or reuse existing one)
+            _ensure_repo(repo_id, token)
             # Push final model to Hub
             model.push_to_hub(repo_id, token=token, commit_message="Training complete")
             tokenizer.push_to_hub(repo_id, token=token, commit_message="Training complete")

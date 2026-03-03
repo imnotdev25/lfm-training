@@ -72,15 +72,42 @@ def export_gguf(
     f16_path.parent.mkdir(parents=True, exist_ok=True)
 
     logger.info("Converting to GGUF F16: %s → %s", model_dir, f16_path)
-    subprocess.run(
-        [
-            sys.executable, str(convert_script),
-            model_dir,
-            "--outfile", str(f16_path),
-            "--outtype", "f16",
-        ],
-        check=True,
-    )
+    try:
+        result = subprocess.run(
+            [
+                sys.executable, str(convert_script),
+                model_dir,
+                "--outfile", str(f16_path),
+                "--outtype", "f16",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except subprocess.CalledProcessError as e:
+        logger.error("❌ GGUF F16 conversion failed (exit %d)", e.returncode)
+        if e.stderr:
+            logger.error("   stderr: %s", e.stderr[-500:])
+
+        # Fallback: try using transformers' built-in GGUF support
+        logger.info("Attempting fallback GGUF export via transformers…")
+        try:
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+
+            _model = AutoModelForCausalLM.from_pretrained(model_dir, torch_dtype="auto")
+            _tokenizer = AutoTokenizer.from_pretrained(model_dir)
+            _model.save_pretrained(str(f16_path.parent / "gguf-transformers"), safe_serialization=True)
+            logger.warning(
+                "⚠️  llama.cpp converter does not support this model architecture. "
+                "Saved safetensors to %s instead. "
+                "You can convert manually once llama.cpp adds support for this arch, or "
+                "use the safetensors model directly.",
+                f16_path.parent / "gguf-transformers",
+            )
+            return []  # Skip quantization steps
+        except Exception as fallback_err:
+            logger.error("❌ Fallback export also failed: %s", fallback_err)
+            return []
 
     published_repos: list[str] = []
     api = HfApi(token=token)

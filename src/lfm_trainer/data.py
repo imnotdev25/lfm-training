@@ -316,7 +316,7 @@ def clean_dataset(
 
 
 def load_datasets(
-    sources: list[Union[str, pd.DataFrame]],
+    sources: list[Any],
     text_column: str = "text",
     tool_calling_only: bool = False,
     quality_filter: bool = False,
@@ -361,6 +361,9 @@ def load_datasets(
         if isinstance(source, pd.DataFrame):
             logger.info("Loading DataFrame source #%d (%d rows)", idx, len(source))
             ds = _apply_formatters(Dataset.from_pandas(source), text_column)
+        elif hasattr(source, "column_names") and hasattr(source, "features"):
+            logger.info("Loading Dataset source #%d (%d rows)", idx, len(source))
+            ds = _apply_formatters(source, text_column)
         else:
             ds = _load_single_source(source, text_column)
         logger.info("  └─ %s rows from source #%d", len(ds), idx)

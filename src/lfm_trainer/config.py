@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 
 def _resolve_hf_token(cli_token: Optional[str] = None) -> Optional[str]:
@@ -73,7 +73,7 @@ class TrainingConfig:
     resume_from_model: Optional[str] = None  # Path or Hub ID of a previously trained adapter/model
 
     # ── Dataset ────────────────────────────────────────────────────────
-    dataset_paths: list[str] = field(default_factory=list)
+    dataset_paths: list[Any] = field(default_factory=list)
     dataset_text_column: str = "text"
     max_seq_length: int = 2048
     tool_calling_only: bool = False

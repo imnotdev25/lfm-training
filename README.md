@@ -231,6 +231,7 @@ See the [`examples/`](examples/) directory for ready-to-run scripts:
 | [`full_finetune.py`](examples/getting_started/full_finetune.py) | Full parameter training (no LoRA) |
 | [`continual_training.py`](examples/getting_started/continual_training.py) | Multi-round training with local saves |
 | [`multi_dataset_training.py`](examples/getting_started/multi_dataset_training.py) | Combining Hub + local + DataFrame sources |
+| [`direct_object_training.py`](examples/getting_started/direct_object_training.py) | Passing DataFrames and HF Datasets directly |
 | [`tool_calling_training.py`](examples/getting_started/tool_calling_training.py) | Tool-calling-only with playwright MCP |
 | [`auto_hp_search.py`](examples/getting_started/auto_hp_search.py) | Auto learning rate search before training |
 

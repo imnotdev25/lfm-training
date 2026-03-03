@@ -496,12 +496,24 @@ def _run_toolcall(
 
     logger.info("Running Tool Calling benchmark…")
 
-    # Load a tool calling evaluation dataset
-    try:
-        ds = load_dataset("Salesforce/xlam-function-calling-60k", split="train")
-    except Exception:
-        logger.warning("⚠️  Could not load tool calling dataset, using built-in problems")
-        ds = None
+    # Load a tool calling evaluation dataset (try multiple sources)
+    ds = None
+    _tc_datasets = [
+        ("Salesforce/xlam-function-calling-60k", None),
+        ("glaiveai/glaive-function-calling-v2", None),
+    ]
+    for _ds_name, _ds_config in _tc_datasets:
+        try:
+            ds = load_dataset(_ds_name, _ds_config, split="train")
+            logger.info("Loaded tool calling dataset: %s", _ds_name)
+            break
+        except Exception as e:
+            logger.debug("Could not load %s: %s", _ds_name, e)
+    if ds is None:
+        logger.warning(
+            "⚠️  Could not load any tool calling dataset (network or auth issue). "
+            "Using 5 built-in test cases instead."
+        )
 
     # Built-in tool calling test cases
     test_cases = [

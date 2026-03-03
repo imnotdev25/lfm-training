@@ -24,11 +24,11 @@ Results from the paper:
 
 CLI:
     # Train on code-adapted terminal tasks
-    lfm-train --dataset nvidia/Nemotron-Terminal-Corpus --dataset-config dataset_adapters \\
+    lfm-train --dataset nvidia/Nemotron-Terminal-Corpus:dataset_adapters \\
         --hub-repo your-username/lfm-terminal-agent
 
     # Train on easy skill-based tasks
-    lfm-train --dataset nvidia/Nemotron-Terminal-Corpus --dataset-config skill_based_easy \\
+    lfm-train --dataset nvidia/Nemotron-Terminal-Corpus:skill_based_easy \\
         --hub-repo your-username/lfm-terminal-easy
 """
 
