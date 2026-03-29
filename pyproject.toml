@@ -1,6 +1,6 @@
 [project]
 name = "lfm-trainer"
-version = "0.15.0"
+version = "0.16.0"
 description = "Fine-tune LFM 2.5 1.2B for coding tasks on Kaggle multi-GPU with auto-publish to Hugging Face"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -19,6 +19,7 @@ dependencies = [
     "huggingface-hub>=0.23.0",
     "pandas>=2.0.0",
     "bitsandbytes>=0.43.0",
+    "tqdm>=4.66.0",
 ]
 
 [project.optional-dependencies]
@@ -41,8 +42,11 @@ deepspeed = [
 cpt = [
     "PyMuPDF>=1.24.0",
 ]
+airllm = [
+    "airllm>=2.8.0",
+]
 all = [
-    "lfm-trainer[logging,benchmarks,mlx,gguf,deepspeed,cpt]",
+    "lfm-trainer[logging,benchmarks,mlx,gguf,deepspeed,cpt,airllm]",
 ]
 kaggle = [
     "lfm-trainer[logging,benchmarks,gguf,deepspeed]"

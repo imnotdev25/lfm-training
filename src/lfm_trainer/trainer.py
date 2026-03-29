@@ -272,8 +272,8 @@ def run_training(cfg: TrainingConfig) -> None:
         logger.info("Starting %s alignment stage…", cfg.alignment_method.upper())
         run_alignment(cfg, model=model, tokenizer=tokenizer)
 
-    # ── 9. Post-training export (GGUF / MLX / TurboQuant) ─────────────
-    if cfg.export_gguf or cfg.export_mlx or cfg.export_turboquant:
+    # ── 9. Post-training export (GGUF / MLX / TurboQuant / AirLLM) ─────
+    if cfg.export_gguf or cfg.export_mlx or cfg.export_turboquant or cfg.export_airllm:
         from lfm_trainer.callbacks import _version_tag
 
         version_tag = _version_tag()
@@ -316,6 +316,10 @@ def run_training(cfg: TrainingConfig) -> None:
             turboquant_dtype=cfg.export_turboquant_dtype,
             turboquant_max_prompts=cfg.export_turboquant_max_prompts,
             turboquant_max_seq_len=cfg.export_turboquant_max_seq_len,
+            enable_airllm=cfg.export_airllm,
+            airllm_mlx=cfg.export_airllm_mlx,
+            airllm_compression=cfg.export_airllm_compression,
+            airllm_delete_original=cfg.export_airllm_delete_original,
             calibration_data=calibration_samples,
         )
 

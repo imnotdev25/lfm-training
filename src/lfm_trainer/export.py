@@ -293,9 +293,92 @@ def export_turboquant(
         
         logger.info("✅ Published TurboQuant metadata → %s", upload_repo)
         return [upload_repo]
-
     except Exception as e:
         logger.error("❌ Failed TurboQuant export: %s", e)
+        return []
+
+
+def export_airllm(
+    model_dir: str,
+    output_base: str,
+    repo_id_base: str,
+    version_tag: str,
+    token: Optional[str] = None,
+    compression: Optional[str] = None,
+    delete_original: bool = False,
+    use_mlx: bool = False,
+) -> list[str]:
+    """Shards a model for AirLLM inference.
+
+    Returns a list of Hub repo IDs that were published.
+    """
+    try:
+        from airllm import AutoModel
+    except ImportError:
+        logger.warning(
+            "airllm is not installed. Skipping AirLLM export. "
+            "Install with: pip install airllm"
+        )
+        return []
+
+    api = HfApi(token=token)
+    suffix = "AirLLM"
+    if use_mlx:
+        suffix += "-MLX"
+    if compression:
+        suffix += f"-{compression}"
+    upload_repo = f"{repo_id_base}-{suffix}"
+    
+    airllm_output_dir = Path(output_base) / "airllm"
+    if use_mlx:
+        airllm_output_dir = airllm_output_dir / "mlx"
+    if compression:
+        airllm_output_dir = airllm_output_dir / compression
+    airllm_output_dir.mkdir(parents=True, exist_ok=True)
+
+    logger.info("Sharding model for AirLLM: %s → %s (MLX: %s)", model_dir, airllm_output_dir, use_mlx)
+
+    try:
+        if use_mlx:
+            try:
+                from airllm import AirLLMMLX
+                model_class = AirLLMMLX
+            except ImportError:
+                logger.error("AirLLMMLX not found in airllm. Ensure you have mlx installed.")
+                return []
+        else:
+            model_class = AutoModel
+
+        # This will trigger the sharding process
+        _ = model_class.from_pretrained(
+            model_dir,
+            compression=compression,
+            layer_shards_saving_path=str(airllm_output_dir),
+            delete_original=delete_original,
+            hf_token=token,
+        )
+
+        # Upload the sharded model to the Hub
+        logger.info("Uploading AirLLM sharded model to %s", upload_repo)
+        api.create_repo(repo_id=upload_repo, exist_ok=True)
+        
+        api.upload_folder(
+            folder_path=str(airllm_output_dir),
+            repo_id=upload_repo,
+            commit_message=f"Add AirLLM sharded model — {version_tag}",
+        )
+
+        # Tag the repo
+        api.create_tag(
+            repo_id=upload_repo,
+            tag=version_tag,
+            tag_message=f"AirLLM {compression or 'no'} compression sharded model",
+        )
+        
+        logger.info("✅ Published AirLLM sharded model → %s", upload_repo)
+        return [upload_repo]
+    except Exception as e:
+        logger.error("❌ Failed AirLLM export: %s", e)
         return []
 
 
@@ -313,6 +396,10 @@ def run_exports(
     turboquant_dtype: str = "turboquant25",
     turboquant_max_prompts: int = 128,
     turboquant_max_seq_len: int = 512,
+    enable_airllm: bool = False,
+    airllm_mlx: bool = False,
+    airllm_compression: Optional[str] = None,
+    airllm_delete_original: bool = False,
     calibration_data: Optional[list[str]] = None,
 ) -> dict[str, list[str]]:
     """Run all post-training exports with a shared version tag.
@@ -342,6 +429,12 @@ def run_exports(
         Max samples for calibration.
     turboquant_max_seq_len:
         Max sequence length for calibration.
+    enable_airllm:
+        Whether to shard the model for AirLLM inference.
+    airllm_compression:
+        Weight compression for AirLLM ("4bit" or "8bit").
+    airllm_delete_original:
+        Whether to delete original model files after sharding to save space.
     calibration_data:
         Optional list of strings to use for calibration.
 
@@ -383,6 +476,19 @@ def run_exports(
             max_prompts=turboquant_max_prompts,
             max_seq_len=turboquant_max_seq_len,
             calibration_data=calibration_data,
+        )
+
+    if enable_airllm:
+        logger.info("═══ Starting AirLLM export ═══")
+        results["airllm"] = export_airllm(
+            model_dir,
+            output_base,
+            repo_id_base,
+            version_tag,
+            token,
+            compression=airllm_compression,
+            delete_original=airllm_delete_original,
+            use_mlx=airllm_mlx,
         )
 
     # Summary

@@ -119,6 +119,10 @@ class TrainingConfig:
     export_turboquant_dtype: str = "turboquant25"  # "turboquant25" or "turboquant35"
     export_turboquant_max_prompts: int = 128
     export_turboquant_max_seq_len: int = 512
+    export_airllm: bool = False
+    export_airllm_mlx: bool = False
+    export_airllm_compression: Optional[str] = None  # "4bit" or "8bit"
+    export_airllm_delete_original: bool = False
     export_output_dir: str = "./lfm-exports"
 
     # ── Benchmarking ──────────────────────────────────────────────────
