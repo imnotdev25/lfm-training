@@ -272,8 +272,8 @@ def run_training(cfg: TrainingConfig) -> None:
         logger.info("Starting %s alignment stage…", cfg.alignment_method.upper())
         run_alignment(cfg, model=model, tokenizer=tokenizer)
 
-    # ── 9. Post-training export (GGUF / MLX) ──────────────────────────
-    if cfg.export_gguf or cfg.export_mlx:
+    # ── 9. Post-training export (GGUF / MLX / TurboQuant) ─────────────
+    if cfg.export_gguf or cfg.export_mlx or cfg.export_turboquant:
         from lfm_trainer.callbacks import _version_tag
 
         version_tag = _version_tag()
@@ -282,7 +282,7 @@ def run_training(cfg: TrainingConfig) -> None:
         # Prepare model for export
         merged_dir = f"{cfg.output_dir}/merged-for-export"
         if cfg.use_lora:
-            # Merge LoRA into base model
+            # Merge LoRA adapters into base model
             logger.info("Merging LoRA adapters into base model → %s", merged_dir)
             merged_model = model.merge_and_unload()
             merged_model.save_pretrained(merged_dir)
@@ -292,6 +292,18 @@ def run_training(cfg: TrainingConfig) -> None:
             model.save_pretrained(merged_dir)
         tokenizer.save_pretrained(merged_dir)
 
+        # For TurboQuant, we can use the training dataset as calibration data
+        calibration_samples = None
+        if cfg.export_turboquant:
+            try:
+                # Extract a few samples for calibration
+                calibration_samples = [
+                    train_dataset[i][cfg.dataset_text_column] 
+                    for i in range(min(len(train_dataset), cfg.export_turboquant_max_prompts))
+                ]
+            except Exception as e:
+                logger.warning("Could not extract calibration samples: %s", e)
+
         run_exports(
             model_dir=merged_dir,
             repo_id_base=repo_id,
@@ -300,5 +312,10 @@ def run_training(cfg: TrainingConfig) -> None:
             output_base=cfg.export_output_dir,
             enable_gguf=cfg.export_gguf,
             enable_mlx=cfg.export_mlx,
+            enable_turboquant=cfg.export_turboquant,
+            turboquant_dtype=cfg.export_turboquant_dtype,
+            turboquant_max_prompts=cfg.export_turboquant_max_prompts,
+            turboquant_max_seq_len=cfg.export_turboquant_max_seq_len,
+            calibration_data=calibration_samples,
         )
 

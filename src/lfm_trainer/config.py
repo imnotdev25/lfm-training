@@ -115,6 +115,10 @@ class TrainingConfig:
     # ── Post-training export ───────────────────────────────────────────
     export_gguf: bool = False
     export_mlx: bool = False
+    export_turboquant: bool = False
+    export_turboquant_dtype: str = "turboquant25"  # "turboquant25" or "turboquant35"
+    export_turboquant_max_prompts: int = 128
+    export_turboquant_max_seq_len: int = 512
     export_output_dir: str = "./lfm-exports"
 
     # ── Benchmarking ──────────────────────────────────────────────────

@@ -15,6 +15,8 @@ from typing import Optional
 
 from huggingface_hub import HfApi
 
+from lfm_trainer.turboquant import calibrate_and_save_turboquant
+
 logger = logging.getLogger(__name__)
 
 # ── Quantization bit-widths ───────────────────────────────────────────────
@@ -219,6 +221,84 @@ def export_mlx(
     return published_repos
 
 
+def export_turboquant(
+    model_dir: str,
+    output_base: str,
+    repo_id_base: str,
+    version_tag: str,
+    token: Optional[str] = None,
+    dtype: str = "turboquant25",
+    max_prompts: int = 128,
+    max_seq_len: int = 512,
+    calibration_data: Optional[list[str]] = None,
+) -> list[str]:
+    """Generate TurboQuant metadata for KV cache quantization.
+
+    Returns a list of Hub repo IDs that were published (if any).
+    """
+    import torch
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    api = HfApi(token=token)
+    suffix = "TurboQuant"
+    upload_repo = f"{repo_id_base}-{suffix}"
+    tq_output_dir = Path(output_base) / "turboquant"
+    tq_output_dir.mkdir(parents=True, exist_ok=True)
+    metadata_path = tq_output_dir / "turboquant_metadata.json"
+
+    logger.info("Generating TurboQuant metadata: %s", model_dir)
+
+    try:
+        # Load model and tokenizer for calibration
+        tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_dir,
+            torch_dtype=torch.float16,
+            device_map="auto",
+            trust_remote_code=True,
+        )
+
+        calibrate_and_save_turboquant(
+            model=model,
+            tokenizer=tokenizer,
+            output_path=str(metadata_path),
+            calibration_data=calibration_data,
+            kv_cache_dtype=dtype,
+            max_prompts=max_prompts,
+            max_seq_len=max_seq_len,
+        )
+
+        # Upload the metadata to the Hub
+        logger.info("Uploading TurboQuant metadata to %s", upload_repo)
+        api.create_repo(repo_id=upload_repo, exist_ok=True)
+        
+        # Upload model config files and the metadata
+        api.upload_folder(
+            folder_path=model_dir,
+            repo_id=upload_repo,
+            ignore_patterns=["*.safetensors", "*.bin", "*.pth"],
+        )
+        api.upload_file(
+            path_or_fileobj=str(metadata_path),
+            path_in_repo="turboquant_metadata.json",
+            repo_id=upload_repo,
+        )
+
+        # Tag the repo
+        api.create_tag(
+            repo_id=upload_repo,
+            tag=version_tag,
+            tag_message="TurboQuant metadata generation",
+        )
+        
+        logger.info("✅ Published TurboQuant metadata → %s", upload_repo)
+        return [upload_repo]
+
+    except Exception as e:
+        logger.error("❌ Failed TurboQuant export: %s", e)
+        return []
+
+
 # ── Unified export runner ─────────────────────────────────────────────────
 
 def run_exports(
@@ -229,6 +309,11 @@ def run_exports(
     output_base: str = "./lfm-exports",
     enable_gguf: bool = True,
     enable_mlx: bool = True,
+    enable_turboquant: bool = False,
+    turboquant_dtype: str = "turboquant25",
+    turboquant_max_prompts: int = 128,
+    turboquant_max_seq_len: int = 512,
+    calibration_data: Optional[list[str]] = None,
 ) -> dict[str, list[str]]:
     """Run all post-training exports with a shared version tag.
 
@@ -249,6 +334,16 @@ def run_exports(
         Whether to export GGUF variants.
     enable_mlx:
         Whether to export MLX variants.
+    enable_turboquant:
+        Whether to generate TurboQuant metadata.
+    turboquant_dtype:
+        TurboQuant KV cache dtype ("turboquant25" or "turboquant35").
+    turboquant_max_prompts:
+        Max samples for calibration.
+    turboquant_max_seq_len:
+        Max sequence length for calibration.
+    calibration_data:
+        Optional list of strings to use for calibration.
 
     Returns
     -------
@@ -275,6 +370,20 @@ def run_exports(
     if enable_mlx:
         logger.info("═══ Starting MLX export ═══")
         results["mlx"] = export_mlx(model_dir, output_base, repo_id_base, version_tag, token)
+
+    if enable_turboquant:
+        logger.info("═══ Starting TurboQuant export ═══")
+        results["turboquant"] = export_turboquant(
+            model_dir,
+            output_base,
+            repo_id_base,
+            version_tag,
+            token,
+            dtype=turboquant_dtype,
+            max_prompts=turboquant_max_prompts,
+            max_seq_len=turboquant_max_seq_len,
+            calibration_data=calibration_data,
+        )
 
     # Summary
     total = sum(len(v) for v in results.values())
