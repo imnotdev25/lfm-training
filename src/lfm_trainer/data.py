@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Union
+from typing import Union, Any
 
 import pandas as pd
 from datasets import Dataset, concatenate_datasets, load_dataset
@@ -36,6 +36,10 @@ COLUMN_PRESETS: dict[str, dict[str, str]] = {
     # Conversational / chat / DataClaw style (e.g. peteromallet/dataclaw-peteromallet)
     "conversation": {
         "messages": "messages",
+    },
+    # ShareGPT / Hermes style
+    "sharegpt": {
+        "conversations": "conversations",
     },
     # Single-column already formatted
     "text": {
@@ -86,10 +90,10 @@ def _format_messages(row: dict) -> dict:
     Handles multiple conversation styles:
       - **DataClaw** (``peteromallet/dataclaw-peteromallet``): ``tool_uses`` list in assistant msgs
       - **OpenAI-style**: ``tool_calls`` list with ``function.name`` / ``function.arguments``
-      - **ShareGPT / generic chat**: plain ``role`` / ``content`` messages
+      - **ShareGPT / Hermes**: ``conversations`` list with ``from`` / ``value`` fields
       - **Tool role**: messages with ``role="tool"`` carrying tool execution results
     """
-    messages = row.get("messages", [])
+    messages = row.get("messages", row.get("conversations", []))
     if not messages:
         return {"text": ""}
 
@@ -102,13 +106,27 @@ def _format_messages(row: dict) -> dict:
     if available_tools:
         import json
 
+        # Handle tools provided as a JSON string (common in some Hermes/ShareGPT exports)
+        if isinstance(available_tools, str):
+            try:
+                available_tools = json.loads(available_tools)
+            except (json.JSONDecodeError, TypeError):
+                pass
+
         tool_defs = json.dumps(available_tools, indent=2, default=str)
         parts.append(f"### System:\nYou have access to the following tools:\n```json\n{tool_defs}\n```")
 
     # ── Process each message ──────────────────────────────────────────
     for msg in messages:
-        role = msg.get("role", "unknown")
-        content = msg.get("content", "") or ""
+        # Support both 'role'/'content' (OpenAI) and 'from'/'value' (ShareGPT)
+        role = msg.get("role", msg.get("from", "unknown"))
+        content = msg.get("content", msg.get("value", "")) or ""
+
+        # Normalize ShareGPT roles
+        if role == "human":
+            role = "user"
+        elif role == "gpt":
+            role = "assistant"
 
         # Include reasoning traces — supports both 'think' (TxT360) and 'thinking' (DataClaw)
         reasoning = msg.get("think", "") or msg.get("thinking", "")
@@ -216,8 +234,8 @@ def _apply_formatters(ds: Dataset, text_column: str = "text") -> Dataset:
     elif {"prompt", "response"}.issubset(columns):
         logger.info("Detected prompt/response format → applying formatter")
         ds = ds.map(_format_prompt_response, remove_columns=ds.column_names)
-    elif "messages" in columns:
-        logger.info("Detected conversational/chat format (e.g. DataClaw) → applying formatter")
+    elif "messages" in columns or "conversations" in columns:
+        logger.info("Detected conversational/chat format (e.g. DataClaw, ShareGPT) → applying formatter")
         ds = ds.map(_format_messages, remove_columns=ds.column_names)
     elif text_column in columns:
         logger.info("Using existing '%s' column", text_column)
