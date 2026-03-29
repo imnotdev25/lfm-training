@@ -131,9 +131,18 @@ class TurboQuantCalibrator:
         # Wait, LFM might have different head size.
         # Better use the actual shape of collected stats.
         
+        # Determine head_size and model_name
+        head_size = getattr(self.model.config, "head_dim", 
+                            self.model.config.hidden_size // self.model.config.num_attention_heads)
+        model_name = getattr(self.model.config, "_name_or_path", "model")
+
         metadata = {
             "version": TURBOQUANT_METADATA_VERSION,
+            "recipe": self.kv_cache_dtype,
+            "head_size": head_size,
+            "model_name": model_name,
             "transform_version": TURBOQUANT_TRANSFORM_VERSION,
+            "codebook_version": "lloyd_beta_v1",
             "layers": {}
         }
         
@@ -155,22 +164,22 @@ class TurboQuantCalibrator:
             k_stats = self.stats[k_key]
             v_stats = self.stats[v_key]
             
-            num_heads, head_size = k_stats.shape
-            outlier_count = get_turboquant_outlier_count(head_size, self.kv_cache_dtype)
+            curr_num_heads, curr_head_size = k_stats.shape
+            outlier_count = get_turboquant_outlier_count(curr_head_size, self.kv_cache_dtype)
             
             def get_outliers(stats):
                 # stats: (num_heads, head_size)
                 # For each head, get top-k outlier indices
                 outliers = []
-                for head_idx in range(num_heads):
+                for head_idx in range(curr_num_heads):
                     head_stats = stats[head_idx]
                     _, indices = torch.topk(head_stats, outlier_count)
                     outliers.append(sorted(indices.tolist()))
                 return outliers
 
             metadata["layers"][layer] = {
-                "k_proj": get_outliers(k_stats),
-                "v_proj": get_outliers(v_stats),
+                "key_high_precision_indices": get_outliers(k_stats),
+                "value_high_precision_indices": get_outliers(v_stats),
             }
             
         return metadata

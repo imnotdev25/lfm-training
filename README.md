@@ -8,6 +8,8 @@ Fine-tune **Liquid LFM 2.5 1.2B** for coding tasks on Kaggle multi-GPU — with 
 - 🧠 **LoRA / PEFT** for memory-efficient fine-tuning
 - 📦 **Structured dataset loading** — CSV, Parquet, JSONL, HuggingFace Hub IDs, or direct `pd.DataFrame` objects
 - 🔍 **Auto-format detection** — Alpaca, prompt/response, conversational/chat (DataClaw), single text column
+- 🌬️ **AirLLM sharding** — run 70B models on 4GB VRAM via layer-by-layer loading; supports MLX
+- 🚀 **TurboQuant KV cache** — 2.5/3.5-bit quantization with outlier preservation for vLLM and MLX
 - �️ **Tool calling support** — LFM 2.5 native `<|tool_call_start|>` / `<|tool_call_end|>` tokens; handles OpenAI and DataClaw tool call formats
 - �🛡️ **Error-resilient training** — auto-publishes versioned checkpoints on OOM, SIGTERM (Kaggle timeout), KeyboardInterrupt, or any exception
 - 🔑 **Flexible HF auth** — CLI arg, `HF_TOKEN` env var, or Kaggle Secrets
@@ -121,6 +123,8 @@ lfm-train --help
 | `--no-model-card` | off | Skip auto model card generation |
 | `--export-gguf` | off | Export GGUF (Q4_K_M, Q6_K, Q8_0) |
 | `--export-mlx` | off | Export MLX (4/6/8-bit) |
+| `--export-turboquant`| off | Export TurboQuant KV cache metadata |
+| `--export-airllm` | off | Shard model for AirLLM inference |
 | `--export-dir` | `./lfm-exports` | Export scratch directory |
 | `--alignment-method` | `dpo` | Alignment method: dpo, ppo, or grpo |
 | `--alignment-dataset` | *none* | HF dataset for alignment (DPO: chosen/rejected; PPO/GRPO: prompts) |
@@ -245,6 +249,14 @@ See the [`examples/`](examples/) directory for ready-to-run scripts:
 | [`merge_adapters.py`](examples/training_modes/merge_adapters.py) | Merge multiple LoRA adapters (with weights) |
 | [`cpt_raw_text.py`](examples/training_modes/cpt_raw_text.py) | Train on books, PDFs, or raw text (CPT) |
 | [`structured_output.py`](examples/training_modes/structured_output.py) | JSON schema training + validation |
+
+### 📁 `inference/` — High-efficiency inference
+
+| Example | Description |
+|---------|-------------|
+| [`airllm_inference.py`](examples/inference/airllm_inference.py) | 70B models on 4GB VRAM with AirLLM |
+| [`airllm_mlx_inference.py`](examples/inference/airllm_mlx_inference.py) | AirLLM on Apple Silicon (MLX) |
+| [`turboquant_inference.py`](examples/inference/turboquant_inference.py) | TurboQuant 2.5/3.5-bit KV cache (vLLM/MLX) |
 
 ### 📁 `domain_specialists/` — Domain-specific fine-tuning
 
